@@ -1,4 +1,4 @@
-# SaaS Foundations
+Saas-App
 
 Build the foundations for a Software as a Service business by leveraging Django, Tailwind, htmx, Neon Postgres, Redis, and more.
 
@@ -7,11 +7,9 @@ The goal of this project is to learn how to create a reusable foundation for bui
 
 ## References
 
-- Deploy Django on [Railway](https://kirr.co/qysgeu) with [this Dockerfile and guide](https://www.codingforentrepreneurs.com/blog/deploy-django-on-railway-with-this-dockerfile/)
-- Create a One-Off Secret Key for Django [blog post](https://www.codingforentrepreneurs.com/blog/create-a-one-off-django-secret-key/)
+- Deploy Django on [Railway] 
+- Create a One-Off Secret Key for Django 
 
-
-Thank you to [Neon](https://kirr.co/eu0b31) for helping bring this course to life!
 
 
 ## Getting Started
@@ -20,7 +18,7 @@ Thank you to [Neon](https://kirr.co/eu0b31) for helping bring this course to lif
 ```bash
 mkdir -p ~/dev/saas
 cd ~/dev/saas
-git clone https://github.com/codingforentrepreneurs/SaaS-Foundations .
+git clone https://github.com/gem-rgb/Saas-App.git
 ```
 
 ### Create Virtual Environment
@@ -161,11 +159,11 @@ python manage.py vendor_pull
 ```
 
 
-### Create a Stripe Account
+### Create a Stripe/Paystack Account
 
-1. Sign up on [Stripe.com](https://www.stripe.com) for an account
-2. Get or create a Stripe Secret API Key (Dashboard > Developers > API keys > _Secret key_ )
-3. Update _dotenv_ (`.env`) with the value `STRIPE_SECRET_KEY` with your key.
+1. Sign up on [Stripe.com/paystack.com](https://www.stripe.com/https://paystack.com/) for an account
+2. Get or create a Stripe/paystack Secret API Key (Dashboard > Developers > API keys > _Secret key_ )
+3. Update _dotenv_ (`.env`) with the value `STRIPE/PAYSTACK_SECRET_KEY` with your key.
 
 
 ### Run the Server
@@ -175,5 +173,3 @@ python manage.py runserver
 ```
 
 Ready to roll! 🚀
-
-Much more coming soon!
