@@ -69,10 +69,13 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # my-apps
     "commando",
+    "contact",
     "customers",
     "profiles",
     "subscriptions",
     "visits",
+    "analytics",
+    "api",
     # third-party-apps
     "allauth_ui",
     'allauth',
@@ -80,12 +83,15 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.github',
     "widget_tweaks",
+    "rest_framework",
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -139,25 +145,6 @@ if DATABASE_URL is not None:
     }
 
 
-# Add these at the top of your settings.py
-# from os import getenv
-# from dotenv import load_dotenv
-
-# Replace the DATABASES section of your settings.py with this
-# DATABASES = {
-#   'default': {
-#     'ENGINE': 'django.db.backends.postgresql',
-#     'NAME': config('PGDATABASE'),
-#     'USER': config('PGUSER'),
-#     'PASSWORD': config('PGPASSWORD'),
-#     'HOST': config('PGHOST'),
-#     'PORT': config('PGPORT', 5432),
-#     'OPTIONS': {
-#       'sslmode': 'require',
-#     },
-#   }
-# }
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -177,20 +164,18 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Django Allauth Config 
+LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_AUTHENTICATION_METHOD = "username_email"
 ACCOUNT_EMAIL_VERIFICATION="mandatory"
-ACCOUNT_EMAIL_SUBJECT_PREFIX="[CFE] "
+ACCOUNT_EMAIL_SUBJECT_PREFIX="[SaaS] "
 ACCOUNT_EMAIL_REQUIRED=True
 
 AUTHENTICATION_BACKENDS = [
-    # ...
     # Needed to login by username in Django admin, regardless of `allauth`
     'django.contrib.auth.backends.ModelBackend',
-
     # `allauth` specific authentication methods, such as login by email
     'allauth.account.auth_backends.AuthenticationBackend',
-    # ...
 ]
 
 SOCIALACCOUNT_PROVIDERS = {
@@ -229,16 +214,40 @@ STATICFILES_DIRS = [
 # local cdn
 STATIC_ROOT = BASE_DIR / "local-cdn"
 
-# < Django 4.2
-# STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
+# Media files (user uploads)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+}
+
+# CORS
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = []
+if not DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        # add production frontend domains here
+    ]
+
+# Stripe Webhook Secret
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="", cast=str)

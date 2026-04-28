@@ -9,3 +9,9 @@ django-allauth[socialaccount]
 django-allauth-ui
 django-widget-tweaks
 stripe
+djangorestframework
+django-cors-headers
+Pillow
+scikit-learn
+pandas
+numpy
