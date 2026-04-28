@@ -134,7 +134,7 @@ DATABASES = {
 CONN_MAX_AGE = config("CONN_MAX_AGE", cast=int, default=300)
 DATABASE_URL = config("DATABASE_URL", default=None)
 
-if DATABASE_URL is not None:
+if DATABASE_URL is not None and DATABASE_URL.strip() != "":
     import dj_database_url
     DATABASES = {
         "default": dj_database_url.config(

@@ -1,175 +1,252 @@
-Saas-App
+# SaaS Platform — Django + ML Analytics
 
-Build the foundations for a Software as a Service business by leveraging Django, Tailwind, htmx, Neon Postgres, Redis, and more.
+A production-ready SaaS foundation built with **Django 5**, **Tailwind CSS**, **Flowbite**, **Stripe**, and **ML-powered analytics**. Everything you need to launch, scale, and intelligently manage a subscription-based software business.
 
-The goal of this project is to learn how to create a reusable foundation for building SaaS products. When release, this course will span multiple topics and give you a solid foundation into build your business.
+---
 
+## ✨ Features
 
-## References
+### 🔐 Authentication & User Management
+- Email + password authentication via **django-allauth**
+- Social login (GitHub OAuth)
+- User profiles with avatar uploads, bio, company info
+- Profile editing with image upload support
+- Role-based access control with Django groups/permissions
 
-- Deploy Django on [Railway] 
-- Create a One-Off Secret Key for Django 
+### 💳 Subscription & Billing
+- Full **Stripe** integration for recurring payments
+- Subscription plans with configurable pricing (monthly/yearly)
+- Checkout flow with success/cancel handling
+- **Real-time webhook processing** for:
+  - `checkout.session.completed`
+  - `invoice.payment_succeeded` / `invoice.payment_failed`
+  - `customer.subscription.updated` / `deleted`
+- Subscription management dashboard (view, cancel, change plan)
+- Automatic permission sync based on active subscription
 
+### 🧠 ML-Powered Analytics Engine
+- **Account Health Score** (0-100) — composite engagement metric
+- **Churn Prediction** — logistic regression-based probability with risk levels (low/medium/high)
+- **Usage Forecasting** — predicts next month's activity based on patterns
+- **Smart Recommendations** — personalized, context-aware suggestions:
+  - Upgrade prompts for free-tier users
+  - Feature discovery for low-engagement users
+  - Retention offers for high-churn-risk users
+  - Subscription renewal reminders
+- Activity tracking with timestamped user action logging
+- 7-day usage trend charts (CSS-only, no JS libraries needed)
 
+### 📊 Dashboard
+- Real data widgets replacing placeholder content:
+  - Active plan badge with status indicator
+  - Page view statistics (total + weekly)
+  - ML health score with color-coded gauge
+  - Days remaining until subscription renewal
+- Interactive activity chart (last 7 days)
+- Churn risk donut gauge with percentage
+- Smart recommendations panel
+- Recent activity feed with timestamps
+- Quick action cards linking to key sections
 
-## Getting Started
+### 🔌 REST API
+- Built with **Django REST Framework**
+- Session-based authentication
+- Endpoints:
+  | Method | Endpoint | Description |
+  |--------|----------|-------------|
+  | `GET` | `/api/v1/me/` | Current user + profile |
+  | `GET` | `/api/v1/subscription/` | Subscription status |
+  | `GET` | `/api/v1/analytics/health-score/` | ML health score |
+  | `GET` | `/api/v1/analytics/usage/` | Usage data + forecast |
+  | `GET` | `/api/v1/analytics/recommendations/` | ML recommendations |
+  | `GET` | `/api/v1/analytics/activity/` | Recent activity log |
 
-### Clone
+### 🎨 UI/UX
+- **Tailwind CSS** + **Flowbite** component library
+- Dark mode with persistent toggle (localStorage)
+- Google Fonts (Inter) for modern typography
+- Gradient branding throughout (blue → purple)
+- Responsive sidebar navigation with real links
+- Toast notifications with color-coded message types
+- SEO meta tags (viewport, description, Open Graph)
+
+### 📄 Complete Pages
+- **Landing page** — hero, features, social proof, testimonials, FAQ, footer
+- **Services page** — 6 feature cards with gradient backgrounds
+- **Pricing page** — dynamic subscription plan cards from database
+- **Contact page** — form with validation, saved to database
+- **Dashboard** — ML-powered analytics overview
+- **Analytics page** — full ML insights dashboard
+- **Profile** — view & edit with avatar support
+- **Billing** — subscription details, cancel flow
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Django 5.0 |
+| Frontend | Tailwind CSS, Flowbite, htmx |
+| Database | SQLite (dev) / Neon Postgres (prod) |
+| Payments | Stripe SDK |
+| Auth | django-allauth (email + GitHub) |
+| API | Django REST Framework |
+| ML | scikit-learn, pandas, numpy |
+| Static files | WhiteNoise |
+| Deployment | Railway / Gunicorn |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Setup
 ```bash
-mkdir -p ~/dev/saas
-cd ~/dev/saas
-git clone https://github.com/gem-rgb/Saas-App.git
+git clone <repo-url>
+cd SaaS-Foundations-main
 ```
 
-### Create Virtual Environment
-
-*macOS/Linux*
+### 2. Create Virtual Environment
 ```bash
-python3 --version # should be 3.11 or higher
-python3 -m venv venv
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# macOS/Linux
 source venv/bin/activate
 ```
 
-*Windows*
+### 3. Install Dependencies
 ```bash
-c:\Python312\python.exe -m venv venv
-.\venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-### Install Requirements
-```bash
-# with venv activated
-pip install pip --upgrade && pip install -r requirements.txt
-```
-
-### Sample dotenv to dotnev
-
+### 4. Configure Environment
 ```bash
 cp .env.sample .env
-cat .env
-```
-Values include:
-- `DJANGO_DEBUG=1`
-- `DJANGO_SECRET_KEY=""`
-- `DATABASE_URL=""`
-- `EMAIL_HOST="smtp.gmail.com"`
-- `EMAIL_PORT="587"`
-- `EMAIL_USE_TLS=True`
-- `EMAIL_USE_SSL=False`
-- `EMAIL_HOST_USER=""`
-- `EMAIL_HOST_PASSWORD=""`
-- `ADMIN_USER_EMAIL=""`
-- `STRIPE_SECRET_KEY=""`
-
-
-### Create the _DJANGO_SECRET_KEY_
-
-```bash
-python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
-```
-or
-```bash
-openssl rand -base64 64
-```
-or
-```bash
-python -c 'import secrets; print(secrets.token_urlsafe(64))'
+# Edit .env with your values:
+# - DJANGO_SECRET_KEY (generate one)
+# - STRIPE_SECRET_KEY (from Stripe dashboard)
+# - STRIPE_WEBHOOK_SECRET (from Stripe webhook settings)
 ```
 
-Once you have this value, add update `DJANGO_SECRET_KEY` in `.env`.
-
-
-### Create [Neon](https://kirr.co/eu0b31) Postgres Database
-
-
-#### Install Neon CLI
-Using the [Neon cli](https://neon.tech/docs/reference/cli-install) via [homebrew](https://brew.sh/):
-
+### 5. Run Migrations
 ```bash
-brew install neonctl
-```
-
-#### Login to Neon CLI
-
-```bash
-neonctl auth
-```
-This will open a browser window to login.
-
-####  Create a new Neon project (optional)
-```bash
-neonctl projects create --name saas
-```
-
-#### Get the Project ID
-
-Once created, get the project id: 
-
-```bash
-neonctl projects list
-```
-Projects
-
-```bash
-┌──────────────────────────┬────────────────────────────┬───────────────┬──────────────────────┐
-│ Id                       │ Name                       │ Region Id     │ Created At           │
-├──────────────────────────┼────────────────────────────┼───────────────┼──────────────────────┤
-│ steep-base-11409687      │ saas                       │ aws-us-east-2 │ 2024-06-02T04:03:07Z │
-└──────────────────────────┴────────────────────────────┴───────────────┴──────────────────────┘
-```
-
-```bash
-PROJECT_ID=steep-base-11409687
-```
-Replace `steep-base-11409687` with your project id.
-
-Or using the shortcut:
-
-```bash
-PROJECT_ID=$(neonctl projects list | grep "saas" | awk -F '│' '{print $2}' | xargs)
-```
-
-#### Get the Database Connection String
-
-```bash
-neonctl connection-string --project-id "$PROJECT_ID"
-```
-Set this value to `DATABASE_URL` in `.env`. 
-
-
-### Run Migrations
-
-```bash
-source venv/bin/activate 
-# or .\venv\Scripts\activate if windows
 cd src
+python manage.py makemigrations
 python manage.py migrate
-```
-
-### Create a Superuser
-
-```bash
 python manage.py createsuperuser
 ```
 
-### Pull Vendor Static Files
-
+### 6. Sync Subscription Permissions
 ```bash
-python manage.py vendor_pull
+python manage.py sync_permissions
 ```
 
-
-### Create a Stripe/Paystack Account
-
-1. Sign up on [Stripe.com/paystack.com](https://www.stripe.com/https://paystack.com/) for an account
-2. Get or create a Stripe/paystack Secret API Key (Dashboard > Developers > API keys > _Secret key_ )
-3. Update _dotenv_ (`.env`) with the value `STRIPE/PAYSTACK_SECRET_KEY` with your key.
-
-
-### Run the Server
-
+### 7. Start Development Server
 ```bash
 python manage.py runserver
 ```
 
-Ready to roll! 🚀
+Visit `http://127.0.0.1:8000/` to see the landing page.
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── analytics/          # ML engine, activity tracking, predictions
+│   ├── ml_engine.py    # Churn prediction, health scoring, recommendations
+│   ├── models.py       # UserActivity, MLPrediction
+│   └── views.py        # Analytics dashboard view
+├── api/                # REST API (DRF)
+│   ├── serializers.py  # User, Subscription, Analytics serializers
+│   ├── views.py        # API endpoints
+│   └── urls.py         # /api/v1/ routes
+├── cfehome/            # Project settings & root URL config
+│   ├── settings.py     # All configuration
+│   ├── urls.py         # Master URL routing
+│   ├── views.py        # Home, about, services views
+│   └── webhooks.py     # Stripe webhook handler
+├── checkouts/          # Stripe checkout flow
+├── contact/            # Contact form & message storage
+├── customers/          # Stripe customer model
+├── dashboard/          # Dashboard views
+├── helpers/            # Billing helper functions
+├── landing/            # Landing page views
+├── profiles/           # User profiles with avatar support
+├── subscriptions/      # Subscription & pricing models
+├── templates/          # All Django templates
+│   ├── analytics/      # ML analytics dashboard
+│   ├── contact/        # Contact form page
+│   ├── dashboard/      # Dashboard layout (base, nav, sidebar, main)
+│   ├── landing/        # Hero, features, testimonials, FAQ, footer
+│   ├── profiles/       # Profile detail & edit
+│   ├── services/       # Services showcase
+│   └── subscriptions/  # Billing & cancel pages
+└── visits/             # Page visit tracking
+```
+
+---
+
+## 🔧 Stripe Webhook Setup
+
+### Local Development
+```bash
+# Install Stripe CLI, then:
+stripe listen --forward-to localhost:8000/webhooks/stripe/
+```
+
+### Production
+1. Go to Stripe Dashboard → Developers → Webhooks
+2. Add endpoint: `https://yourdomain.com/webhooks/stripe/`
+3. Select events: `checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
+4. Copy the webhook signing secret to your `.env` as `STRIPE_WEBHOOK_SECRET`
+
+---
+
+## 🧪 ML Analytics Details
+
+The ML engine (`analytics/ml_engine.py`) uses a **feature extraction → scoring → prediction** pipeline:
+
+### Features Extracted (per user, 30-day window)
+- Login count
+- Page views
+- Feature usage count
+- Days since last activity
+- Subscription age
+- Active subscription status
+- Support contact count
+
+### Models
+| Model | Algorithm | Output |
+|-------|-----------|--------|
+| Health Score | Weighted scoring algorithm | 0-100 score |
+| Churn Prediction | Heuristic + Logistic Regression | 0-100% probability |
+| Usage Forecast | Linear trend analysis | Predicted actions next month |
+| Recommendations | Rule-based + ML signals | Personalized action cards |
+
+The engine self-improves as user data accumulates and can be retrained via:
+```bash
+python manage.py shell -c "from analytics.ml_engine import analyze_user; from django.contrib.auth import get_user_model; [analyze_user(u) for u in get_user_model().objects.all()]"
+```
+
+---
+
+## 📝 Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DJANGO_SECRET_KEY` | ✅ | Django secret key |
+| `DJANGO_DEBUG` | ✅ | `1` for dev, `0` for production |
+| `DATABASE_URL` | ❌ | Postgres URL (defaults to SQLite) |
+| `STRIPE_SECRET_KEY` | ❌ | Stripe API secret key |
+| `STRIPE_WEBHOOK_SECRET` | ❌ | Stripe webhook signing secret |
+| `EMAIL_HOST_USER` | ❌ | SMTP email username |
+| `EMAIL_HOST_PASSWORD` | ❌ | SMTP email password |
+
+---
+
+## 📜 License
+
+MIT
