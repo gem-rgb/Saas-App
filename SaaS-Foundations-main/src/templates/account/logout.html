@@ -1,13 +1,24 @@
-{% extends "account/base.html" %}
-{% load i18n %}
-{% block head_title %}
-    {% translate "Sign out" %}
-{% endblock %}
-{% block whitebox %}
-    <form method="post" action="{% url 'account_logout' %}">
-        {% csrf_token %}
-        <p>{% translate "Are you sure you want to sign out?" %}</p>
-        {% translate "Sign out" as signout_message %}
-        {% include "account/_button.html" with text=signout_message %}
-    </form>
+{% extends 'base.html' %}
+
+{% block head_title %}Sign Out - {{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div class="w-full max-w-md">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 text-center fade-in-up">
+            <div class="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Sign Out</h1>
+            <p class="text-gray-500 dark:text-gray-400 mb-6">Are you sure you want to sign out?</p>
+            <form method="POST" action="{% url 'account_logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="w-full btn-gradient text-white font-semibold py-3 px-4 rounded-xl shadow-lg text-sm mb-3" id="logout-submit">
+                    Yes, sign me out
+                </button>
+            </form>
+            <a href="{% url 'home' %}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">No, take me back →</a>
+        </div>
+    </div>
+</section>
 {% endblock %}
