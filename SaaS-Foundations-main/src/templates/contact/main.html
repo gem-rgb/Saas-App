@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block head_title %}Contact Us - {{ block.super }}{% endblock %}
+{% block content %}
+<section class="bg-white dark:bg-gray-900 py-16">
+    <div class="max-w-screen-md px-4 mx-auto">
+        <h1 class="mb-4 text-4xl font-extrabold text-center text-gray-900 dark:text-white">Get in Touch</h1>
+        <p class="mb-8 text-center text-gray-500 dark:text-gray-400">Have a question or need help? We'd love to hear from you.</p>
+        <form action="" method="POST" class="space-y-6">
+            {% csrf_token %}
+            <div class="grid gap-6 md:grid-cols-2">
+                <div>
+                    <label for="contact-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your name</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="mt-1 text-sm text-red-500">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label for="contact-email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your email</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}<p class="mt-1 text-sm text-red-500">{{ form.email.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+            <div>
+                <label for="contact-subject" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Subject</label>
+                {{ form.subject }}
+                {% if form.subject.errors %}<p class="mt-1 text-sm text-red-500">{{ form.subject.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label for="contact-message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Message</label>
+                {{ form.message }}
+                {% if form.message.errors %}<p class="mt-1 text-sm text-red-500">{{ form.message.errors.0 }}</p>{% endif %}
+            </div>
+            <button type="submit" class="w-full text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-3 transition-all shadow-lg shadow-blue-500/25" id="contact-submit">Send Message</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

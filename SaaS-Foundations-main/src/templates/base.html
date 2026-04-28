@@ -1,14 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="dark">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SaaS Platform — Build, scale, and manage your software business with powerful tools, analytics, and ML-powered insights.">
+    <meta property="og:title" content="{% block og_title %}SaaS Platform{% endblock og_title %}">
+    <meta property="og:description" content="Powerful SaaS foundation with subscription management, ML analytics, and more.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <title>{% block head_title %}SaaS{% endblock head_title %}</title>
     {% include 'base/css.html' %}
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        /* Dark mode toggle */
+        html.dark { color-scheme: dark; }
+        .dark-toggle { cursor: pointer; transition: transform 0.3s ease; }
+        .dark-toggle:hover { transform: rotate(15deg); }
+    </style>
+    {% block extra_css %}{% endblock extra_css %}
 </head>
-<body>
+<body class="bg-white dark:bg-gray-900 antialiased">
     {% include 'nav/navbar.html' %}
     {% include 'base/messages.html' with messages=messages %}
     {% block content %}
     {% endblock content %}
     {% include 'base/js.html' %}
+    <script>
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('darkMode', isDark ? 'true' : 'false');
+        }
+        // Load preference
+        if (localStorage.getItem('darkMode') === 'false') {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    {% block extra_js %}{% endblock extra_js %}
 </body>
 </html>
