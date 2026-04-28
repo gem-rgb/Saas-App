@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block head_title %}Sign In - {{ block.super }}{% endblock %}
+
+{% block content %}
+<section class="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div class="w-full max-w-md">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in-up">
+            <a href="{% url 'home' %}" class="inline-flex items-center space-x-2 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                </div>
+                <span class="text-2xl font-bold gradient-text">SaaS</span>
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>
+        </div>
+
+        <!-- Card -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8 fade-in-up" style="animation-delay:0.1s">
+            {% if form.non_field_errors %}
+            <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800">
+                {% for error in form.non_field_errors %}
+                <p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{% url 'account_login' %}" class="space-y-5">
+                {% csrf_token %}
+                
+                <div>
+                    <label for="id_login" class="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Username or Email</label>
+                    <input type="text" name="login" id="id_login" required autofocus
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 transition-all"
+                        placeholder="Enter your username or email"
+                        {% if form.login.value %}value="{{ form.login.value }}"{% endif %}>
+                    {% if form.login.errors %}
+                    <p class="mt-1 text-xs text-red-500">{{ form.login.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="id_password" class="text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                        <a href="{% url 'account_reset_password' %}" class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">Forgot password?</a>
+                    </div>
+                    <input type="password" name="password" id="id_password" required
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 transition-all"
+                        placeholder="Enter your password">
+                    {% if form.password.errors %}
+                    <p class="mt-1 text-xs text-red-500">{{ form.password.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" name="remember" id="id_remember" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="id_remember" class="ml-2 text-sm text-gray-600 dark:text-gray-400">Remember me</label>
+                </div>
+
+                {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                {% endif %}
+
+                <button type="submit" class="w-full btn-gradient text-white font-semibold py-3 px-4 rounded-xl shadow-lg text-sm" id="login-submit">
+                    Sign In
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200 dark:border-gray-700"></div></div>
+                <div class="relative flex justify-center text-sm"><span class="px-3 bg-white dark:bg-gray-800 text-gray-500">or</span></div>
+            </div>
+
+            <!-- Social -->
+            <a href="{% url 'socialaccount_signup' %}?process=login&provider=github" class="w-full inline-flex items-center justify-center px-4 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600 transition-all">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+                Continue with GitHub
+            </a>
+        </div>
+
+        <!-- Footer -->
+        <p class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            Don't have an account? <a href="{% url 'account_signup' %}" class="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">Sign up</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

@@ -46,7 +46,7 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = str(os.environ.get("DJANGO_DEBUG")).lower() == "true"
 DEBUG = config("DJANGO_DEBUG", cast=bool)
-BASE_URL = config("BASE_URL", default=None)
+BASE_URL = config("BASE_URL", default="http://127.0.0.1:8000")
 ALLOWED_HOSTS = [
     ".railway.app" # https://saas.prod.railway.app
 ]
@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "analytics",
     "api",
     # third-party-apps
+    "slippers",
     "allauth_ui",
     'allauth',
     'allauth.account',
@@ -166,10 +167,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # Django Allauth Config 
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
-ACCOUNT_AUTHENTICATION_METHOD = "username_email"
-ACCOUNT_EMAIL_VERIFICATION="mandatory"
-ACCOUNT_EMAIL_SUBJECT_PREFIX="[SaaS] "
-ACCOUNT_EMAIL_REQUIRED=True
+# django-allauth settings (updated for v0.63+)
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[SaaS] "
 
 AUTHENTICATION_BACKENDS = [
     # Needed to login by username in Django admin, regardless of `allauth`
