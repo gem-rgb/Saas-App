@@ -1,23 +1,25 @@
-{% extends 'base.html' %}
-
-
-{% block head_title %}Your Subscription - {{ block.super }}{% endblock head_title %}
-
-
+{% extends 'dashboard/base.html' %}
+{% block head_title %}Cancel Subscription - {{ block.super }}{% endblock %}
 {% block content %}
-
-{% if subscription.is_active_status  %}
-<h1 class="text-lg font-medium">Are you sure you want to cancel {{ subscription.plan_name }}?</h1>
-
-
-<form action="" method="POST">{% csrf_token %}
-    <button type="submit" >Yes, cancel</button>
-</form>
-<a href="{{ subscription.get_absolute_url}}">No, go back</a>
-
-{% else %}
-
-<h1 class="text-lg font-medium">Your membership is not longer active</h1>
-{% endif %}
-{% endblock content %}
-
+<div class="max-w-lg mx-auto mt-8">
+    {% if subscription.is_active_status %}
+    <div class="bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 p-8 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+        </div>
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Cancel {{ subscription.plan_name }}?</h1>
+        <p class="text-gray-500 dark:text-gray-400 mb-6">Your access will continue until the end of your current billing period. You can re-subscribe anytime.</p>
+        <form action="" method="POST" class="space-y-3">{% csrf_token %}
+            <button type="submit" class="w-full px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors" id="confirm-cancel">Yes, cancel my plan</button>
+        </form>
+        <a href="{{ subscription.get_absolute_url }}" class="inline-block mt-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">No, keep my plan →</a>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 p-8 text-center">
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2">No Active Membership</h1>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">Your membership is no longer active.</p>
+        <a href="{% url 'pricing' %}" class="inline-block px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">View Plans</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
