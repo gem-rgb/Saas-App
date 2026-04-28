@@ -1,0 +1,54 @@
+{% extends 'dashboard/base.html' %}
+{% block head_title %}Edit Profile - {{ block.super }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h1>
+    <form action="" method="POST" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+        <div class="bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Info</h2>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                    <label for="profile-first-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">First Name</label>
+                    {{ user_form.first_name }}
+                </div>
+                <div>
+                    <label for="profile-last-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Last Name</label>
+                    {{ user_form.last_name }}
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Profile Details</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="profile-bio" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bio</label>
+                    {{ profile_form.bio }}
+                </div>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="profile-company" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Company</label>
+                        {{ profile_form.company }}
+                    </div>
+                    <div>
+                        <label for="profile-phone" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Phone</label>
+                        {{ profile_form.phone }}
+                    </div>
+                </div>
+                <div>
+                    <label for="profile-website" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Website</label>
+                    {{ profile_form.website }}
+                </div>
+                <div>
+                    <label for="profile-avatar" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Avatar</label>
+                    {% if profile.avatar_url %}
+                    <img src="{{ profile.avatar_url }}" class="w-16 h-16 rounded-full mb-2 object-cover" alt="Current avatar">
+                    {% endif %}
+                    {{ profile_form.avatar }}
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="w-full text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 font-medium rounded-lg text-sm px-5 py-3 transition-all" id="profile-save">Save Changes</button>
+    </form>
+</div>
+{% endblock %}

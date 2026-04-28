@@ -1,21 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="dark">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block head_title %}SaaS{% endblock head_title %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     {% include 'base/css.html' %}
+    <style>body { font-family: 'Inter', system-ui, sans-serif; }</style>
 </head>
 <body>
     <div class="antialiased bg-gray-50 dark:bg-gray-900">
         {% include 'dashboard/nav.html' %}
         {% include 'dashboard/sidebar.html' %}
-
-        <main class="p-4 md:ml-64 h-auto pt-20">
+        <main class="p-4 md:ml-64 h-auto pt-20 min-h-screen">
         {% include 'base/messages.html' with messages=messages %}
         {% block content %}
         {% endblock content %}
-    </main>
-
+        </main>
     </div>
     {% include 'base/js.html' %}
+    <script>
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark') ? 'true' : 'false');
+        }
+        if (localStorage.getItem('darkMode') === 'false') { document.documentElement.classList.remove('dark'); }
+    </script>
 </body>
 </html>

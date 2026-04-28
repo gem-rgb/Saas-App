@@ -1,0 +1,92 @@
+{% extends 'dashboard/base.html' %}
+{% block head_title %}ML Analytics - {{ block.super }}{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">🧠 ML Analytics Dashboard</h1>
+    <p class="text-gray-500 dark:text-gray-400 mt-1">Machine learning-powered insights about your account</p>
+</div>
+
+<!-- Health + Churn -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Account Health Score</h3>
+        <div class="relative w-28 h-28 mx-auto mb-3">
+            <svg class="w-28 h-28 transform -rotate-90" viewBox="0 0 36 36">
+                <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" stroke-width="2.5"></path>
+                <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="{% if health_color == 'green' %}#22c55e{% elif health_color == 'yellow' %}#eab308{% else %}#ef4444{% endif %}" stroke-width="2.5" stroke-dasharray="{{ health_score }}, 100" stroke-linecap="round"></path>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ health_score }}</span>
+            </div>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-medium {% if health_color == 'green' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% elif health_color == 'yellow' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ engagement_level|title }} Engagement</span>
+    </div>
+    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Churn Probability</h3>
+        <p class="text-4xl font-bold {% if churn_risk_level == 'low' %}text-green-500{% elif churn_risk_level == 'medium' %}text-yellow-500{% else %}text-red-500{% endif %} mb-2">{{ churn_probability }}%</p>
+        <span class="px-3 py-1 rounded-full text-xs font-medium {% if churn_risk_level == 'low' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% elif churn_risk_level == 'medium' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ churn_risk_level|title }} Risk</span>
+    </div>
+    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Predicted Usage</h3>
+        <p class="text-4xl font-bold text-blue-500 mb-2">{{ usage_forecast }}</p>
+        <span class="text-xs text-gray-500">actions next month</span>
+    </div>
+</div>
+
+<!-- Usage Chart -->
+<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Activity Trend — Last 7 Days</h3>
+    <div class="flex items-end space-x-3 h-40">
+        {% for day in usage_chart_data %}
+        <div class="flex-1 flex flex-col items-center">
+            <span class="text-xs text-gray-500 mb-1">{{ day.count }}</span>
+            <div class="w-full bg-gradient-to-t from-blue-600 to-purple-500 rounded-t-lg transition-all hover:from-blue-700 hover:to-purple-600" style="height: {{ day.height }}%"></div>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ day.day }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Recommendations -->
+<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 mb-6">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Personalized Recommendations</h3>
+    {% if recommendations %}
+    <div class="grid gap-4 md:grid-cols-2">
+        {% for rec in recommendations %}
+        <div class="p-4 rounded-lg border {% if rec.type == 'warning' %}border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-800{% elif rec.type == 'upgrade' %}border-purple-200 bg-purple-50 dark:bg-purple-900/10 dark:border-purple-800{% elif rec.type == 'success' %}border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800{% else %}border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800{% endif %}">
+            <p class="font-medium text-gray-900 dark:text-white">{{ rec.icon }} {{ rec.title }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ rec.text }}</p>
+            {% if rec.action_url %}
+            <a href="{{ rec.action_url }}" class="inline-block mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">{{ rec.action_text }} →</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-sm">Keep using the platform to get personalized ML recommendations!</p>
+    {% endif %}
+</div>
+
+<!-- Feature Breakdown -->
+<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Engagement Metrics</h3>
+    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.login_count }}</p>
+            <p class="text-xs text-gray-500">Logins (30d)</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.page_views }}</p>
+            <p class="text-xs text-gray-500">Page Views (30d)</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.feature_uses }}</p>
+            <p class="text-xs text-gray-500">Feature Uses (30d)</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.days_since_last_activity }}d</p>
+            <p class="text-xs text-gray-500">Since Last Activity</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
