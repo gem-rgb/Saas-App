@@ -10,4 +10,8 @@ urlpatterns = [
     path('v1/analytics/usage/', views.usage_view, name='usage'),
     path('v1/analytics/recommendations/', views.recommendations_view, name='recommendations'),
     path('v1/analytics/activity/', views.activity_view, name='activity'),
+    path('v1/portal/summary/', views.portal_summary_view, name='portal-summary'),
+    path('v1/marketplace/tasks/', views.marketplace_tasks_view, name='marketplace-tasks'),
+    path('v1/trust/application/', views.trust_application_view, name='trust-application'),
+    path('v1/operations/overview/', views.operations_overview_view, name='operations-overview'),
 ]

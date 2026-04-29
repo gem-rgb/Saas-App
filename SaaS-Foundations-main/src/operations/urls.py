@@ -1,0 +1,13 @@
+from django.urls import path
+
+from operations import views
+
+
+app_name = "operations"
+
+urlpatterns = [
+    path("", views.manager_dashboard_view, name="dashboard"),
+    path("regions/<slug:code>/", views.region_dashboard_view, name="region_dashboard"),
+    path("taskers/<int:tasker_id>/", views.tasker_performance_view, name="tasker_performance"),
+]
+

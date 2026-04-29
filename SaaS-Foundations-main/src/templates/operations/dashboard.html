@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block head_title %}Operations Command Center{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-10 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Command Center</h1>
+                <p class="mt-2 text-slate-600 dark:text-slate-400">Global operations overview. Manage escalations, quality audits, and regional health.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
+                    System Operational
+                </span>
+            </div>
+        </div>
+
+        <!-- High-Level Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <div class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Active Regions</div>
+                <div class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.regions }}</div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <div class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total Escalations</div>
+                <div class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.escalations }}</div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-red-200 dark:border-red-900/50 p-6 shadow-sm">
+                <div class="text-sm font-medium text-red-500 dark:text-red-400 mb-1">Open Escalations</div>
+                <div class="text-3xl font-bold text-red-600 dark:text-red-500">{{ summary.open_escalations }}</div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-amber-200 dark:border-amber-900/50 p-6 shadow-sm">
+                <div class="text-sm font-medium text-amber-500 dark:text-amber-400 mb-1">Quality Audits</div>
+                <div class="text-3xl font-bold text-amber-600 dark:text-amber-500">{{ summary.tasks_under_review }}</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Escalations -->
+            <div class="lg:col-span-2">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm h-full">
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">
+                        <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            Active Escalations
+                        </h2>
+                    </div>
+                    
+                    {% if escalations %}
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Task</th>
+                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Region</th>
+                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                                {% for esc in escalations %}
+                                <tr>
+                                    <td class="py-4 text-sm font-medium text-slate-900 dark:text-white">{{ esc.task.title }}</td>
+                                    <td class="py-4 text-sm text-slate-500 dark:text-slate-400">
+                                        <a href="{% url 'operations:region_dashboard' esc.region.code %}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ esc.region.name }}</a>
+                                    </td>
+                                    <td class="py-4 text-sm">
+                                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
+                                            {% if esc.status == 'open' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                            {% elif esc.status == 'investigating' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400
+                                            {% else %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400{% endif %}">
+                                            {{ esc.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td class="py-4 text-sm text-slate-500 dark:text-slate-400 capitalize">{{ esc.priority }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                        <div class="text-center py-8 text-slate-500 dark:text-slate-400">
+                            No active escalations. The platform is running smoothly!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Regions & Taskers Sidebar -->
+            <div class="space-y-8">
+                <!-- Regions -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">Your Regions</h2>
+                    <div class="space-y-3">
+                        {% for region in regions %}
+                        <a href="{% url 'operations:region_dashboard' region.code %}" class="block p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all">
+                            <div class="font-semibold text-slate-900 dark:text-white">{{ region.name }}</div>
+                            <div class="text-xs text-slate-500 mt-1">{{ region.timezone }} • {{ region.countries|join:", " }}</div>
+                        </a>
+                        {% empty %}
+                            <p class="text-sm text-slate-500">No regions assigned to your profile.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Recent Quality Audits -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">Recent Audits</h2>
+                    <div class="space-y-4">
+                        {% for audit in audits %}
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium text-sm text-slate-900 dark:text-white truncate">{{ audit.task.title }}</span>
+                                <span class="text-xs font-bold {% if audit.verdict == 'pass' %}text-emerald-500{% elif audit.verdict == 'fail' %}text-red-500{% else %}text-amber-500{% endif %}">
+                                    {{ audit.get_verdict_display }}
+                                </span>
+                            </div>
+                            <div class="text-xs text-slate-500">{{ audit.created_at|date:"M d" }} • {{ audit.manager.user.username|default:"System" }}</div>
+                        </div>
+                        {% empty %}
+                            <p class="text-sm text-slate-500">No recent quality audits.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock content %}

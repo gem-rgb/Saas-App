@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block head_title %}Tasker Recruitment Dashboard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-10 relative">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-100/40 via-transparent to-transparent dark:from-indigo-900/20 z-0 pointer-events-none"></div>
+
+    <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="mb-10 text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-3">Your Tasker Journey</h1>
+            <p class="text-lg text-slate-600 dark:text-slate-400">Complete the onboarding steps below to become a verified expert.</p>
+        </div>
+
+        <!-- Overall Status Banner -->
+        <div class="mb-8 p-6 rounded-2xl flex items-center justify-between border shadow-sm
+            {% if application.status == 'approved' %}bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800
+            {% elif application.status == 'rejected' %}bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800
+            {% else %}bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700{% endif %}">
+            
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-xl
+                    {% if application.status == 'approved' %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400
+                    {% elif application.status == 'rejected' %}bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400
+                    {% else %}bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400{% endif %}">
+                    {% if application.status == 'approved' %}<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    {% elif application.status == 'rejected' %}<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    {% else %}
+                        {{ readiness.percentage }}%
+                    {% endif %}
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">
+                        Application Status: <span class="capitalize">{{ application.get_status_display }}</span>
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        {% if is_ready and application.status != 'approved' %}
+                            Your application is complete and currently under review by our operations team.
+                        {% elif application.status == 'approved' %}
+                            Congratulations! You are a verified tasker.
+                        {% else %}
+                            You are {{ readiness.percentage }}% ready. Complete the missing steps below.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            {% if application.status == 'approved' %}
+                <a href="{% url 'marketplace:board' %}" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500">Go to Tasks</a>
+            {% endif %}
+        </div>
+
+        <!-- Steps Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Step 1: Basic Application -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center font-bold">1</div>
+                    {% if application.status != 'draft' %}
+                        <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></span>
+                    {% endif %}
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Profile & Experience</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">Submit your bio, select your core competencies, and upload your resume/CV.</p>
+                <a href="{% url 'trust:application_submit' %}" class="w-full text-center rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                    {% if application.status == 'draft' %}Start{% else %}Review{% endif %}
+                </a>
+            </div>
+
+            <!-- Step 2: KYC & Identity -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center font-bold">2</div>
+                    {% if identity and identity.status == 'verified' %}
+                        <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></span>
+                    {% endif %}
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Identity Verification</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">Upload your government ID and complete a quick liveness check to prove you are who you say you are.</p>
+                <a href="{% url 'trust:kyc_dashboard' %}" class="w-full text-center rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                    {% if not identity or identity.status == 'pending' %}Start{% else %}View Status{% endif %}
+                </a>
+            </div>
+
+            <!-- Step 3: AI Interview -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center font-bold">3</div>
+                    {% if interviews %}
+                        <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></span>
+                    {% endif %}
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">AI Technical Interview</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">Take a brief 10-minute automated technical interview tailored to your selected competencies.</p>
+                <a href="{% url 'trust:interview_dashboard' %}" class="w-full text-center rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                    {% if not interviews %}Start Interview{% else %}View Results{% endif %}
+                </a>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock content %}

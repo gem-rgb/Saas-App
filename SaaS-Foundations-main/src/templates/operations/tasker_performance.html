@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block head_title %}{{ tasker.user.username }} - Performance CRM{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-10 relative">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <div class="mb-8">
+            <button onclick="history.back()" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors mb-4">
+                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back
+            </button>
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-bold text-2xl">
+                    {{ tasker.user.username|first|upper }}
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{{ tasker.user.username }}</h1>
+                    <p class="mt-1 text-slate-600 dark:text-slate-400">Tasker CRM • Global Quality Score: <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ tasker.quality_score|default:"N/A" }}</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Performance History -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">Periodic Snapshots</h2>
+                {% if snapshots %}
+                    <div class="space-y-4">
+                        {% for snap in snapshots %}
+                        <div class="p-4 rounded-xl border border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                            <div>
+                                <div class="font-bold text-slate-900 dark:text-white">{{ snap.period_end|date:"F Y" }}</div>
+                                <div class="text-xs text-slate-500">Region: {{ snap.region.name|default:"Global" }}</div>
+                            </div>
+                            <div class="flex gap-6 text-center">
+                                <div>
+                                    <div class="text-xs text-slate-500 uppercase">Tasks</div>
+                                    <div class="font-bold text-slate-900 dark:text-white">{{ snap.tasks_completed }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-500 uppercase">On-Time</div>
+                                    <div class="font-bold {% if snap.on_time_rate >= 95 %}text-emerald-500{% else %}text-amber-500{% endif %}">{{ snap.on_time_rate|floatformat:1 }}%</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-slate-500 uppercase">Rating</div>
+                                    <div class="font-bold text-indigo-600 dark:text-indigo-400">{{ snap.quality_rating|floatformat:1 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-slate-500">No snapshot history for this tasker.</p>
+                {% endif %}
+            </div>
+
+            <!-- Quality Audits -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">Recent Quality Audits</h2>
+                {% if audits %}
+                    <ul class="space-y-4">
+                        {% for audit in audits %}
+                        <li class="p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div class="flex justify-between items-start mb-2">
+                                <a href="{% url 'marketplace:task_detail' audit.task.pk %}" class="font-bold text-slate-900 dark:text-white hover:text-indigo-600 hover:underline">{{ audit.task.title }}</a>
+                                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold
+                                    {% if audit.verdict == 'pass' %}bg-emerald-100 text-emerald-800
+                                    {% elif audit.verdict == 'fail' %}bg-red-100 text-red-800
+                                    {% else %}bg-amber-100 text-amber-800{% endif %}">
+                                    {{ audit.get_verdict_display }}
+                                </span>
+                            </div>
+                            <div class="text-sm text-slate-600 dark:text-slate-400 mb-2">{{ audit.notes }}</div>
+                            <div class="text-xs text-slate-500 flex justify-between">
+                                <span>Auditor: {{ audit.manager.user.username|default:"System AI" }}</span>
+                                <span>{{ audit.created_at|date:"M d, Y" }}</span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-slate-500">No quality audits recorded for tasks by this user.</p>
+                {% endif %}
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock content %}

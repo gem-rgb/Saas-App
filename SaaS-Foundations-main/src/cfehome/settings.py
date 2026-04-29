@@ -74,9 +74,14 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # my-apps
     "assignments",
+    "marketplace",
+    "trust",
+    "operations",
     "commando",
     "contact",
     "customers",
+    "landing",
+    "dashboard",
     "profiles",
     "subscriptions",
     "visits",
@@ -172,7 +177,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Django Allauth Config 
 LOGIN_URL = "/accounts/login/"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = "/portal/"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 # django-allauth settings (updated for v0.63+)
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
@@ -258,5 +264,9 @@ if not DEBUG:
         # add production frontend domains here
     ]
 
-# Stripe Webhook Secret
+# Stripe Webhook Secret (Legacy, keeping for subscriptions)
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="", cast=str)
+
+# Paystack Config
+PAYSTACK_SECRET_KEY = config("PAYSTACK_SECRET_KEY", default="")
+PAYSTACK_PUBLIC_KEY = config("PAYSTACK_PUBLIC_KEY", default="")

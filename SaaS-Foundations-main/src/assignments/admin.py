@@ -4,10 +4,20 @@ from .models import TaskerProfile, Assignment, AssignmentFile, AssignmentAssignm
 
 @admin.register(TaskerProfile)
 class TaskerProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'skill_level', 'completed_assignments', 'success_rate', 'is_active_tasker')
-    list_filter = ('skill_level', 'is_active_tasker', 'created_at')
+    list_display = (
+        'user',
+        'skill_level',
+        'trust_score',
+        'quality_score',
+        'kyc_status',
+        'competency_status',
+        'interview_status',
+        'approval_status',
+        'is_active_tasker',
+    )
+    list_filter = ('skill_level', 'kyc_status', 'competency_status', 'interview_status', 'approval_status', 'is_active_tasker', 'created_at')
     search_fields = ('user__username', 'user__email', 'skills')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'last_assessed_at')
 
 
 @admin.register(Assignment)

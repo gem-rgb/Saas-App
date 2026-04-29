@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block head_title %}Submit Deliverables - {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-12 relative">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <div class="mb-8">
+            <a href="{% url 'marketplace:task_detail' task.pk %}" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors mb-4">
+                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back to Task Detail
+            </a>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Submit Work</h1>
+            <p class="mt-2 text-slate-600 dark:text-slate-400">Upload your completed deliverables for "{{ task.title }}"</p>
+        </div>
+
+        <div class="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xl overflow-hidden p-8">
+            
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="rounded-xl bg-red-50 p-4 border border-red-200">
+                    <div class="text-sm text-red-700">Please correct the errors below.</div>
+                </div>
+                {% endif %}
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Submission Notes / Message to Client</label>
+                    <p class="text-xs text-slate-500 mb-2">Explain what you've done or provide links to external work if applicable.</p>
+                    {{ form.submission_text }}
+                </div>
+
+                <div class="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50">
+                    <h4 class="font-bold text-indigo-900 dark:text-indigo-300 mb-2">Quality Reminder</h4>
+                    <p class="text-sm text-indigo-700 dark:text-indigo-400">Ensure your submission meets all the instructions provided. Submitting incomplete work may result in a negative impact on your Trust Score and Revision Frequency rating.</p>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit" class="w-full rounded-xl bg-indigo-600 px-8 py-4 text-center text-lg font-bold text-white shadow-lg hover:bg-indigo-500 transition-all">
+                        Submit Deliverables
+                    </button>
+                </div>
+            </form>
+            
+        </div>
+    </div>
+</div>
+{% endblock content %}

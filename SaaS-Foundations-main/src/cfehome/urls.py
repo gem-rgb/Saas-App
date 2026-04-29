@@ -44,6 +44,11 @@ urlpatterns = [
     path("services/", services_view, name='services'),
     path("hello-world/", home_view),
     path("hello-world.html", home_view),
+    # Platform portals
+    path("portal/", include("dashboard.urls")),
+    path("marketplace/", include("marketplace.urls")),
+    path("trust/", include("trust.urls")),
+    path("operations/", include("operations.urls")),
     # Account & Billing
     path('accounts/billing/', subscriptions_views.user_subscription_view, name='user_subscription'),
     path('accounts/billing/cancel', subscriptions_views.user_subscription_cancel_view, name='user_subscription_cancel'),

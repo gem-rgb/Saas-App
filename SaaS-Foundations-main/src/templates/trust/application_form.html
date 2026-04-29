@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block head_title %}Application Form - Recruitment{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-12 relative">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        <div class="mb-8">
+            <a href="{% url 'trust:dashboard' %}" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors mb-4">
+                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back to Dashboard
+            </a>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Profile & Experience</h1>
+            <p class="mt-2 text-slate-600 dark:text-slate-400">Tell us about your background and select the areas where you excel.</p>
+        </div>
+
+        <div class="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xl overflow-hidden">
+            <div class="p-8">
+                <form method="POST" enctype="multipart/form-data" class="space-y-8">
+                    {% csrf_token %}
+                    
+                    {% if application_form.errors or document_form.errors %}
+                    <div class="rounded-xl bg-red-50 p-4 border border-red-200">
+                        <div class="text-sm text-red-700">Please correct the errors below.</div>
+                    </div>
+                    {% endif %}
+
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Professional Headline</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Headline</label>
+                                {{ application_form.headline }}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio Summary</label>
+                                {{ application_form.bio_summary }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200 dark:border-slate-700">
+
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Competencies</h3>
+                        <p class="text-sm text-slate-500 mb-4">Select the areas you are qualified to take assignments in. Note: You will be tested on these.</p>
+                        <div>
+                            {{ application_form.competencies }}
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200 dark:border-slate-700">
+
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Upload Documents</h3>
+                        <p class="text-sm text-slate-500 mb-4">Upload your Resume/CV and any relevant certificates.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Document Type</label>
+                                {{ document_form.document_type }}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">File</label>
+                                {{ document_form.file }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-6">
+                        <button type="submit" class="w-full rounded-xl bg-indigo-600 px-8 py-4 text-center text-lg font-bold text-white shadow-lg hover:bg-indigo-500 transition-all">
+                            Save & Continue
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock content %}

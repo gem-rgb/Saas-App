@@ -6,15 +6,41 @@ import os
 
 User = settings.AUTH_USER_MODEL
 
+
 class TaskerProfile(models.Model):
     """Profile for users who complete assignments (taskers)"""
+    class KYCStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        UNDER_REVIEW = "under_review", "Under Review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    class CompetencyStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        VERIFIED = "verified", "Verified"
+        FLAGGED = "flagged", "Flagged"
+
+    class InterviewStatus(models.TextChoices):
+        NOT_STARTED = "not_started", "Not Started"
+        SCHEDULED = "scheduled", "Scheduled"
+        PASSED = "passed", "Passed"
+        UNDER_REVIEW = "under_review", "Under Review"
+        FAILED = "failed", "Failed"
+
+    class ApprovalStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        SUSPENDED = "suspended", "Suspended"
+
     SKILL_LEVEL_CHOICES = [
         ('beginner', 'Beginner'),
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced'),
         ('expert', 'Expert'),
     ]
-    
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tasker_profile')
     skills = models.TextField(help_text="Comma-separated list of skills (e.g., 'Python, Data Analysis, ML')")
     skill_level = models.CharField(max_length=20, choices=SKILL_LEVEL_CHOICES, default='beginner')
@@ -23,11 +49,38 @@ class TaskerProfile(models.Model):
     success_rate = models.FloatField(default=0.0, help_text="Percentage of successfully completed assignments")
     availability_hours_per_week = models.IntegerField(default=20)
     is_active_tasker = models.BooleanField(default=True)
+    home_region = models.ForeignKey(
+        "operations.Region",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="taskers",
+    )
+    competency_areas = models.ManyToManyField(
+        "trust.CompetencyArea",
+        blank=True,
+        related_name="taskers",
+    )
+    kyc_status = models.CharField(max_length=20, choices=KYCStatus.choices, default=KYCStatus.PENDING)
+    competency_status = models.CharField(max_length=20, choices=CompetencyStatus.choices, default=CompetencyStatus.PENDING)
+    interview_status = models.CharField(max_length=20, choices=InterviewStatus.choices, default=InterviewStatus.NOT_STARTED)
+    approval_status = models.CharField(max_length=20, choices=ApprovalStatus.choices, default=ApprovalStatus.PENDING)
+    trust_score = models.FloatField(default=0.0)
+    quality_score = models.FloatField(default=0.0)
+    on_time_delivery_rate = models.FloatField(default=0.0)
+    revision_frequency = models.FloatField(default=0.0)
+    fraud_risk_score = models.FloatField(default=0.0)
+    reliability_score = models.FloatField(default=0.0)
+    current_workload_hours = models.FloatField(default=0.0)
+    last_ai_score = models.FloatField(default=0.0)
+    admin_approved = models.BooleanField(default=False)
+    is_accepting_work = models.BooleanField(default=False)
+    last_assessed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-success_rate', '-completed_assignments']
+        ordering = ['-trust_score', '-quality_score', '-completed_assignments']
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} - {self.skill_level}"
@@ -42,34 +95,34 @@ class Assignment(models.Model):
         ('completed', 'Completed'),
         ('archived', 'Archived'),
     ]
-    
+
     PRIORITY_CHOICES = [
         ('low', 'Low'),
         ('medium', 'Medium'),
         ('high', 'High'),
         ('urgent', 'Urgent'),
     ]
-    
+
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_assignments')
     title = models.CharField(max_length=255)
     description = models.TextField()
     required_skills = models.TextField(help_text="Comma-separated skills needed (e.g., 'Python, Database Design')")
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    
+
     # Deadline and timing
     deadline = models.DateTimeField(null=True, blank=True)
     estimated_hours = models.IntegerField(help_text="Estimated hours to complete")
-    
+
     # Assignment tracking
     assigned_to = models.ForeignKey(TaskerProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='assignments')
     assigned_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    
+
     # Metadata
     budget_cents = models.IntegerField(null=True, blank=True, help_text="Budget in cents (e.g., 10000 = $100)")
     ml_match_score = models.FloatField(default=0.0, help_text="ML engine match score with assigned tasker")
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -125,7 +178,7 @@ class AssignmentAssignment(models.Model):
     assigned_at = models.DateTimeField(auto_now_add=True)
     ml_match_score = models.FloatField()
     notes = models.TextField(blank=True, null=True)
-    
+
     class Meta:
         unique_together = ('assignment', 'tasker')
         ordering = ['-ml_match_score']
@@ -142,18 +195,18 @@ class AssignmentSubmission(models.Model):
         ('rejected', 'Rejected'),
         ('needs_revision', 'Needs Revision'),
     ]
-    
+
     assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name='submissions')
-    tasker = models.ForeignKey(TaskerProfile, on_delete=models.CASCADE, related_name='submissions')
+    tasker = models.ForeignKey(TaskerProfile, on_delete=models.CASCADE, related_name='assignment_submissions')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    
+
     submission_text = models.TextField()
     submitted_at = models.DateTimeField(auto_now_add=True)
-    
+
     reviewer_notes = models.TextField(blank=True, null=True)
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_submissions')
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    
+
     rating = models.IntegerField(null=True, blank=True, help_text="Rating out of 5")
 
     class Meta:
