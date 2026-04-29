@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}Assignment Dashboard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Assignment Management</h1>
+      <p class="mt-2 text-gray-600 dark:text-gray-400">Manage assignments and connect with talented taskers</p>
+    </div>
+
+    {% if is_tasker %}
+      <!-- Tasker Dashboard -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">Active Assignments</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ pending_count }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">Completed</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ completed_count }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">Success Rate</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ tasker_profile.success_rate|floatformat:0 }}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasker Stats -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Your Profile</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Skill Level</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white capitalize">{{ tasker_profile.get_skill_level_display }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Completed Tasks</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ tasker_profile.completed_assignments }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Weekly Availability</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ tasker_profile.availability_hours_per_week }}h</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Status</p>
+            <p class="text-lg font-semibold">
+              <span class="{% if tasker_profile.is_active_tasker %}text-green-600{% else %}text-gray-600{% endif %}">
+                {% if tasker_profile.is_active_tasker %}Active{% else %}Inactive{% endif %}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <!-- Assignment Creator Dashboard -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">Posted Assignments</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ posted_count }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">In Progress</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ in_progress_count }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-5">
+              <p class="text-gray-600 dark:text-gray-400">Completed</p>
+              <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ completed_count }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
+        <div class="flex gap-4">
+          <a href="{% url 'assignments:assignment_create' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+            <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Create Assignment
+          </a>
+          <a href="{% url 'assignments:tasker_list' %}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-base font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            Browse Taskers
+          </a>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Recent Assignments -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Recent Assignments</h2>
+      </div>
+      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% if recent_assignments %}
+          {% for assignment in recent_assignments %}
+            <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+              <div class="flex items-center justify-between">
+                <div class="flex-1">
+                  <a href="{% url 'assignments:assignment_detail' assignment.pk %}" class="text-lg font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                    {{ assignment.title }}
+                  </a>
+                  <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ assignment.description|truncatewords:20 }}</p>
+                  <div class="mt-2 flex gap-2">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                      {{ assignment.get_status_display }}
+                    </span>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                      {{ assignment.get_priority_display }}
+                    </span>
+                  </div>
+                </div>
+                <div class="ml-4 text-right">
+                  <p class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ assignment.created_at|date:"M d, Y" }}</p>
+                  {% if assignment.deadline %}
+                    <p class="text-sm text-red-600 dark:text-red-400">Due: {{ assignment.deadline|date:"M d" }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="p-6 text-center">
+            <p class="text-gray-600 dark:text-gray-400">No assignments yet.</p>
+            {% if not is_tasker %}
+              <a href="{% url 'assignments:assignment_create' %}" class="text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block">Create your first assignment</a>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

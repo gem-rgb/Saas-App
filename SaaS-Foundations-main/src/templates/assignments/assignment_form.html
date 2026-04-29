@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}{% if assignment %}Edit Assignment{% else %}Create Assignment{% endif %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-8">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">
+        {% if assignment %}Edit Assignment{% else %}Create New Assignment{% endif %}
+      </h1>
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Title -->
+        <div>
+          <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ form.title.label }}
+          </label>
+          {% render_form_field form.title %}
+          {% if form.title.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.title.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ form.description.label }}
+          </label>
+          {% render_form_field form.description %}
+          {% if form.description.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.description.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Required Skills -->
+        <div>
+          <label for="{{ form.required_skills.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ form.required_skills.label }}
+          </label>
+          {% render_form_field form.required_skills %}
+          <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Enter skills separated by commas</p>
+          {% if form.required_skills.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.required_skills.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Priority -->
+        <div>
+          <label for="{{ form.priority.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ form.priority.label }}
+          </label>
+          {% render_form_field form.priority %}
+          {% if form.priority.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.priority.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <div class="grid grid-cols-2 gap-6">
+          <!-- Deadline -->
+          <div>
+            <label for="{{ form.deadline.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.deadline.label }}
+            </label>
+            {% render_form_field form.deadline %}
+            {% if form.deadline.errors %}
+              <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.deadline.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Estimated Hours -->
+          <div>
+            <label for="{{ form.estimated_hours.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.estimated_hours.label }}
+            </label>
+            {% render_form_field form.estimated_hours %}
+            {% if form.estimated_hours.errors %}
+              <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.estimated_hours.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Budget -->
+        <div>
+          <label for="{{ form.budget_cents.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {{ form.budget_cents.label }}
+          </label>
+          {% render_form_field form.budget_cents %}
+          <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Leave blank if no budget (optional)</p>
+          {% if form.budget_cents.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.budget_cents.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            {% if assignment %}Update Assignment{% else %}Create Assignment{% endif %}
+          </button>
+          <a href="{% url 'assignments:assignment_list' %}" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-center">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function renderFormField(field) {
+  return field;
+}
+</script>
+{% endblock %}

@@ -326,3 +326,199 @@ def analyze_user(user):
         'recommendations': recs,
         'health_color': prediction.health_color,
     }
+
+
+# ============ Assignment Matching ML Engine ============
+
+def calculate_skill_match_score(assignment_skills, tasker_skills):
+    """
+    Calculate skill match between assignment requirements and tasker skills.
+    Returns score from 0 to 1.
+    """
+    if not assignment_skills or not tasker_skills:
+        return 0.0
+    
+    # Parse skills (comma-separated strings)
+    req_skills = set(s.strip().lower() for s in assignment_skills.split(','))
+    tasker_skill_set = set(s.strip().lower() for s in tasker_skills.split(','))
+    
+    if not req_skills:
+        return 1.0
+    
+    # Calculate Jaccard similarity
+    intersection = req_skills & tasker_skill_set
+    union = req_skills | tasker_skill_set
+    
+    skill_match = len(intersection) / len(union) if union else 0.0
+    
+    # Bonus if tasker has MORE skills than required (versatility)
+    extra_skills = len(tasker_skill_set - req_skills)
+    versatility_bonus = min(0.1, extra_skills * 0.02)
+    
+    return min(1.0, skill_match + versatility_bonus)
+
+
+def calculate_availability_score(tasker, assignment_hours):
+    """
+    Calculate availability match based on tasker's weekly hours and current workload.
+    Returns score from 0 to 1.
+    """
+    # Get current active assignments for tasker
+    from assignments.models import Assignment as AssignmentModel
+    
+    active_assignments = AssignmentModel.objects.filter(
+        assigned_to=tasker,
+        status__in=['posted', 'in_progress']
+    ).aggregate(
+        total_hours=models.Sum('estimated_hours')
+    )
+    
+    current_hours = active_assignments.get('total_hours') or 0
+    available_hours = max(0, tasker.availability_hours_per_week - current_hours)
+    
+    if assignment_hours <= available_hours:
+        return 1.0
+    elif available_hours > 0:
+        return available_hours / assignment_hours
+    else:
+        return 0.0
+
+
+def calculate_success_history_score(tasker):
+    """
+    Calculate score based on tasker's track record.
+    Returns score from 0 to 1.
+    """
+    # Success rate is stored as percentage (0-100)
+    success_rate = tasker.success_rate / 100.0
+    
+    # Recent completion bonus
+    from assignments.models import AssignmentSubmission
+    recent_submissions = AssignmentSubmission.objects.filter(
+        tasker=tasker,
+        submitted_at__gte=timezone.now() - datetime.timedelta(days=30)
+    ).count()
+    
+    # More recent completions = higher reliability
+    recency_bonus = min(0.15, recent_submissions * 0.03)
+    
+    return min(1.0, success_rate + recency_bonus)
+
+
+def calculate_skill_level_match(tasker, assignment_priority):
+    """
+    Match tasker skill level with assignment priority.
+    Returns score from 0 to 1.
+    """
+    priority_to_min_level = {
+        'low': 'beginner',
+        'medium': 'intermediate',
+        'high': 'advanced',
+        'urgent': 'expert',
+    }
+    
+    skill_level_ranking = {
+        'beginner': 1,
+        'intermediate': 2,
+        'advanced': 3,
+        'expert': 4,
+    }
+    
+    required_level = priority_to_min_level.get(assignment_priority, 'beginner')
+    required_rank = skill_level_ranking.get(required_level, 1)
+    tasker_rank = skill_level_ranking.get(tasker.skill_level, 1)
+    
+    if tasker_rank >= required_rank:
+        return 1.0
+    else:
+        # Partial match if tasker is slightly below required level
+        return tasker_rank / required_rank * 0.7
+
+
+def match_assignment_to_taskers(assignment, top_n=5):
+    """
+    Use ML to find best-matching taskers for an assignment.
+    Returns list of dicts with tasker info and match score.
+    """
+    from assignments.models import TaskerProfile
+    from django.db import models as db_models
+    
+    # Get active taskers
+    taskers = TaskerProfile.objects.filter(is_active_tasker=True)
+    
+    matches = []
+    
+    for tasker in taskers:
+        # Calculate individual match components
+        skill_match = calculate_skill_match_score(assignment.required_skills, tasker.skills)
+        availability = calculate_availability_score(tasker, assignment.estimated_hours)
+        success_history = calculate_success_history_score(tasker)
+        skill_level = calculate_skill_level_match(tasker, assignment.priority)
+        
+        # Weighted combination of factors
+        # Skill match is most important, then success history, then availability
+        combined_score = (
+            skill_match * 0.4 +
+            success_history * 0.3 +
+            availability * 0.2 +
+            skill_level * 0.1
+        )
+        
+        # Only include matches above threshold
+        if combined_score > 0.3:
+            matches.append({
+                'tasker': tasker,
+                'score': round(combined_score, 3),
+                'skill_match': round(skill_match, 3),
+                'availability': round(availability, 3),
+                'success_history': round(success_history, 3),
+                'skill_level': round(skill_level, 3),
+            })
+    
+    # Sort by score descending
+    matches.sort(key=lambda x: x['score'], reverse=True)
+    
+    return matches[:top_n]
+
+
+def recommend_assignment_to_tasker(tasker):
+    """
+    Recommend assignments for a specific tasker based on their skills and availability.
+    Returns list of recommended assignments.
+    """
+    from assignments.models import Assignment as AssignmentModel
+    
+    # Get posted assignments not yet assigned
+    available_assignments = AssignmentModel.objects.filter(
+        status='posted',
+        assigned_to=None
+    )
+    
+    recommendations = []
+    
+    for assignment in available_assignments:
+        # Calculate match score
+        skill_match = calculate_skill_match_score(assignment.required_skills, tasker.skills)
+        availability = calculate_availability_score(tasker, assignment.estimated_hours)
+        skill_level = calculate_skill_level_match(tasker, assignment.priority)
+        
+        combined_score = (
+            skill_match * 0.4 +
+            availability * 0.3 +
+            skill_level * 0.3
+        )
+        
+        if combined_score > 0.5:  # Higher threshold for personal recommendations
+            recommendations.append({
+                'assignment': assignment,
+                'score': round(combined_score, 3),
+                'match_details': {
+                    'skill_match': round(skill_match, 3),
+                    'availability': round(availability, 3),
+                    'skill_level': round(skill_level, 3),
+                }
+            })
+    
+    # Sort by score descending and return top 10
+    recommendations.sort(key=lambda x: x['score'], reverse=True)
+    return recommendations[:10]

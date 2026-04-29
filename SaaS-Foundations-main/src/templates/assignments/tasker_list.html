@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Taskers{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Available Taskers</h1>
+      <p class="mt-2 text-gray-600 dark:text-gray-400">Find and connect with talented taskers</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+      <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search by Skills</label>
+          <input type="text" name="search" value="{{ request.GET.search }}" placeholder="Python, Data Analysis..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Skill Level</label>
+          <select name="skill_level" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+            <option value="">All Levels</option>
+            <option value="beginner" {% if request.GET.skill_level == 'beginner' %}selected{% endif %}>Beginner</option>
+            <option value="intermediate" {% if request.GET.skill_level == 'intermediate' %}selected{% endif %}>Intermediate</option>
+            <option value="advanced" {% if request.GET.skill_level == 'advanced' %}selected{% endif %}>Advanced</option>
+            <option value="expert" {% if request.GET.skill_level == 'expert' %}selected{% endif %}>Expert</option>
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Search</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Taskers Grid -->
+    {% if taskers %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for tasker in taskers %}
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition overflow-hidden">
+            <div class="px-6 py-8">
+              <!-- Header -->
+              <div class="flex items-start justify-between mb-4">
+                <div>
+                  <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ tasker.user.get_full_name }}</h3>
+                  <p class="text-sm text-gray-600 dark:text-gray-400">@{{ tasker.user.username }}</p>
+                </div>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if tasker.is_active_tasker %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                  {% if tasker.is_active_tasker %}Available{% else %}Not Available{% endif %}
+                </span>
+              </div>
+
+              <!-- Bio -->
+              {% if tasker.bio %}
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ tasker.bio|truncatewords:20 }}</p>
+              {% endif %}
+
+              <!-- Stats -->
+              <div class="grid grid-cols-3 gap-4 py-4 border-y border-gray-200 dark:border-gray-700">
+                <div>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">Level</p>
+                  <p class="font-semibold text-gray-900 dark:text-white capitalize text-sm">{{ tasker.get_skill_level_display }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">Tasks Done</p>
+                  <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ tasker.completed_assignments }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">Success</p>
+                  <p class="font-semibold text-green-600 text-sm">{{ tasker.success_rate|floatformat:0 }}%</p>
+                </div>
+              </div>
+
+              <!-- Skills -->
+              <div class="my-4">
+                <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Skills</p>
+                <div class="flex flex-wrap gap-1">
+                  {% for skill in tasker.skills|slice:":3"|split:"," %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                      {{ skill|trim }}
+                    </span>
+                  {% endfor %}
+                  {% if tasker.skills|split:","|length > 3 %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                      +{{ tasker.skills|split:","|length|add:"-3" }}
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Availability -->
+              <div class="mb-4">
+                <p class="text-xs text-gray-600 dark:text-gray-400">Weekly Availability</p>
+                <p class="font-semibold text-gray-900 dark:text-white">{{ tasker.availability_hours_per_week }} hours</p>
+              </div>
+
+              <!-- Action -->
+              <a href="{% url 'assignments:assignment_create' %}" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center font-medium text-sm">
+                Create Assignment
+              </a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Pagination -->
+      {% if is_paginated %}
+        <div class="flex justify-center gap-2 mt-8">
+          {% if page_obj.has_previous %}
+            <a href="?page=1" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">First</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">Previous</a>
+          {% endif %}
+          <span class="px-3 py-2">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">Next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">Last</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+        <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 12H9m6 0H9m6 0a4 4 0 11-8 0" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-1">No taskers found</h3>
+        <p class="text-gray-600 dark:text-gray-400">Try adjusting your search filters</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}Tasker Profile{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Profile Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+      <div class="px-6 py-8">
+        <div class="flex items-start justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ tasker.user.get_full_name }}</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">@{{ tasker.user.username }}</p>
+            <div class="mt-4 flex gap-4">
+              <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Skill Level</p>
+                <p class="font-semibold text-gray-900 dark:text-white capitalize">{{ tasker.get_skill_level_display }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Tasks Completed</p>
+                <p class="font-semibold text-gray-900 dark:text-white">{{ tasker.completed_assignments }}</p>
+              </div>
+              <div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Success Rate</p>
+                <p class="font-semibold text-green-600">{{ tasker.success_rate|floatformat:0 }}%</p>
+              </div>
+            </div>
+          </div>
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {% if tasker.is_active_tasker %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+            {% if tasker.is_active_tasker %}Active{% else %}Inactive{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6 mb-8">
+      <!-- Edit Profile Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Edit Profile</h2>
+        <form method="post" class="space-y-4">
+          {% csrf_token %}
+          
+          <!-- Skills -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.skills.label }}
+            </label>
+            {% render_form_field form.skills %}
+          </div>
+
+          <!-- Skill Level -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.skill_level.label }}
+            </label>
+            {% render_form_field form.skill_level %}
+          </div>
+
+          <!-- Bio -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.bio.label }}
+            </label>
+            {% render_form_field form.bio %}
+          </div>
+
+          <!-- Availability -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {{ form.availability_hours_per_week.label }}
+            </label>
+            {% render_form_field form.availability_hours_per_week %}
+          </div>
+
+          <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+            Save Changes
+          </button>
+        </form>
+      </div>
+
+      <!-- Stats -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Statistics</h2>
+        <div class="space-y-4">
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400">Weekly Availability</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ tasker.availability_hours_per_week }}h</p>
+          </div>
+          <div class="border-b border-gray-200 dark:border-gray-700 pb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400">Member Since</p>
+            <p class="text-lg font-medium text-gray-900 dark:text-white">{{ tasker.created_at|date:"M Y" }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400">Status</p>
+            <p class="text-lg font-medium">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium {% if tasker.is_active_tasker %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
+                {% if tasker.is_active_tasker %}Available{% else %}Not Available{% endif %}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skills Display -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Skills</h2>
+        <div class="flex flex-wrap gap-2">
+          {% for skill in tasker.skills|split:"," %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+              {{ skill|trim }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Assignments -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Assignments</h2>
+      </div>
+      <div class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% if assignments %}
+          {% for assignment in assignments %}
+            <div class="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+              <div class="flex items-start justify-between">
+                <div>
+                  <a href="{% url 'assignments:assignment_detail' assignment.pk %}" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                    {{ assignment.title }}
+                  </a>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ assignment.description|truncatewords:15 }}</p>
+                  <div class="mt-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                      {{ assignment.get_status_display }}
+                    </span>
+                  </div>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ assignment.assigned_at|date:"M d, Y" }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="p-6 text-center text-gray-600 dark:text-gray-400">
+            No assignments yet
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

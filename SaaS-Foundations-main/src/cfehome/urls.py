@@ -50,6 +50,8 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     # Profiles
     path('profiles/', include('profiles.urls')),
+    # Assignments
+    path('assignments/', include('assignments.urls')),
     # Analytics
     path('analytics/', analytics_views.analytics_dashboard_view, name='analytics_dashboard'),
     # API

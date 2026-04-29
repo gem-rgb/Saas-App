@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}Submit Assignment{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <!-- Header -->
+      <div class="px-6 py-8 border-b border-gray-200 dark:border-gray-700">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Submit Your Work</h1>
+        <p class="text-gray-600 dark:text-gray-400">Assignment: <strong>{{ assignment.title }}</strong></p>
+      </div>
+
+      <!-- Form -->
+      <div class="px-6 py-8">
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+
+          <!-- Assignment Info -->
+          <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">Assignment Details</h3>
+            <div class="grid grid-cols-2 gap-4 text-sm text-blue-800 dark:text-blue-200">
+              <div>
+                <p class="text-xs font-medium text-blue-600 dark:text-blue-300">Created</p>
+                <p>{{ assignment.created_at|date:"M d, Y" }}</p>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-blue-600 dark:text-blue-300">Estimated Hours</p>
+                <p>{{ assignment.estimated_hours }} hours</p>
+              </div>
+              {% if assignment.deadline %}
+                <div>
+                  <p class="text-xs font-medium text-blue-600 dark:text-blue-300">Deadline</p>
+                  <p>{{ assignment.deadline|date:"M d, Y" }}</p>
+                </div>
+              {% endif %}
+              <div>
+                <p class="text-xs font-medium text-blue-600 dark:text-blue-300">Priority</p>
+                <p class="capitalize">{{ assignment.get_priority_display }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Assignment Description</h3>
+            <div class="prose dark:prose-invert max-w-none">
+              {{ assignment.description|linebreaks }}
+            </div>
+          </div>
+
+          <!-- Submission -->
+          <div>
+            <label for="{{ form.submission_text.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Your Submission
+            </label>
+            {% render_form_field form.submission_text %}
+            <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">Describe your completed work, include any relevant details, code snippets, or explanations.</p>
+            {% if form.submission_text.errors %}
+              <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.submission_text.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="flex gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button type="submit" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+              Submit
+            </button>
+            <a href="{% url 'assignments:assignment_detail' assignment.pk %}" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium text-center">
+              Cancel
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

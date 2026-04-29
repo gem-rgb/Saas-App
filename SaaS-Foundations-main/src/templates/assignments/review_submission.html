@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Review Submission{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <!-- Header -->
+      <div class="px-6 py-8 border-b border-gray-200 dark:border-gray-700">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Review Submission</h1>
+        <p class="text-gray-600 dark:text-gray-400">Assignment: <strong>{{ submission.assignment.title }}</strong></p>
+      </div>
+
+      <div class="px-6 py-8 grid grid-cols-3 gap-8">
+        <!-- Submission Content -->
+        <div class="col-span-2">
+          <!-- Submitter Info -->
+          <div class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Submitted by</h2>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-medium text-gray-900 dark:text-white">{{ submission.tasker.user.get_full_name }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ submission.tasker.user.email }}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ submission.tasker.get_skill_level_display }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Submitted on</p>
+                <p class="font-medium text-gray-900 dark:text-white">{{ submission.submitted_at|date:"M d, Y H:i" }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submission Content -->
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Submission</h3>
+            <div class="prose dark:prose-invert max-w-none bg-gray-50 dark:bg-gray-700 p-6 rounded-lg">
+              {{ submission.submission_text|linebreaks }}
+            </div>
+          </div>
+
+          <!-- Review Form -->
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Your Review</h3>
+            <form method="post" class="space-y-6">
+              {% csrf_token %}
+
+              <!-- Status -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="radio" name="status" value="approved" class="w-4 h-4 text-green-600">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">✓ Approve</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input type="radio" name="status" value="needs_revision" class="w-4 h-4 text-yellow-600">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">→ Needs Revision</span>
+                  </label>
+                  <label class="flex items-center">
+                    <input type="radio" name="status" value="rejected" class="w-4 h-4 text-red-600">
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">✗ Reject</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Rating -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rating</label>
+                <div class="flex gap-1">
+                  {% for i in "12345" %}
+                    <label class="cursor-pointer">
+                      <input type="radio" name="rating" value="{{ i }}" class="sr-only">
+                      <span class="text-2xl" id="star-{{ i }}">☆</span>
+                    </label>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reviewer Notes</label>
+                <textarea name="reviewer_notes" rows="5" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Provide feedback to the tasker..."></textarea>
+              </div>
+
+              <!-- Submit -->
+              <div class="flex gap-4">
+                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                  Submit Review
+                </button>
+                <a href="{% url 'assignments:assignment_detail' submission.assignment.pk %}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium">
+                  Cancel
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Sidebar: Assignment Details -->
+        <div>
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 sticky top-8">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Assignment</h3>
+            
+            <div class="space-y-4">
+              <div>
+                <p class="text-xs text-gray-600 dark:text-gray-400">Title</p>
+                <p class="font-medium text-gray-900 dark:text-white">{{ submission.assignment.title }}</p>
+              </div>
+
+              <div>
+                <p class="text-xs text-gray-600 dark:text-gray-400">Required Skills</p>
+                <p class="font-medium text-gray-900 dark:text-white text-sm">{{ submission.assignment.required_skills }}</p>
+              </div>
+
+              <div>
+                <p class="text-xs text-gray-600 dark:text-gray-400">Estimated Hours</p>
+                <p class="font-medium text-gray-900 dark:text-white">{{ submission.assignment.estimated_hours }}h</p>
+              </div>
+
+              <div>
+                <p class="text-xs text-gray-600 dark:text-gray-400">Priority</p>
+                <p class="font-medium text-gray-900 dark:text-white capitalize">{{ submission.assignment.get_priority_display }}</p>
+              </div>
+
+              {% if submission.assignment.deadline %}
+                <div>
+                  <p class="text-xs text-gray-600 dark:text-gray-400">Deadline</p>
+                  <p class="font-medium text-gray-900 dark:text-white">{{ submission.assignment.deadline|date:"M d, Y" }}</p>
+                </div>
+              {% endif %}
+
+              <div class="pt-4 border-t border-gray-200 dark:border-gray-600">
+                <a href="{% url 'assignments:assignment_detail' submission.assignment.pk %}" class="text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                  View Full Assignment
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('input[name="rating"]').forEach(input => {
+  input.addEventListener('change', (e) => {
+    const rating = e.target.value;
+    for (let i = 1; i <= 5; i++) {
+      const star = document.getElementById(`star-${i}`);
+      star.textContent = i <= rating ? '★' : '☆';
+    }
+  });
+});
+</script>
+{% endblock %}

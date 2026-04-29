@@ -18,7 +18,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Configure Gmail for Django Emails: https://www.codingforentrepreneurs.com/blog/sending-email-in-django-from-gmail/
 
 # Email config
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# Use console backend for development, SMTP for production
+if config("DJANGO_DEBUG", cast=bool, default=False):
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
 EMAIL_HOST = config("EMAIL_HOST", cast=str, default="smtp.gmail.com")
 EMAIL_PORT = config("EMAIL_PORT", cast=str, default="587") # Recommended
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", cast=str, default=None)
@@ -68,6 +73,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # my-apps
+    "assignments",
     "commando",
     "contact",
     "customers",
@@ -170,7 +176,8 @@ LOGIN_REDIRECT_URL = "/"
 # django-allauth settings (updated for v0.63+)
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Optional email verification for development, mandatory for production
+ACCOUNT_EMAIL_VERIFICATION = "optional" if config("DJANGO_DEBUG", cast=bool, default=False) else "mandatory"
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[SaaS] "
 
 AUTHENTICATION_BACKENDS = [
