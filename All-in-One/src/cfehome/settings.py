@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.github',
+    'allauth.socialaccount.providers.google',
     "widget_tweaks",
     "rest_framework",
     "corsheaders",
@@ -189,19 +190,32 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # Optional email verification for development, mandatory for production
 ACCOUNT_EMAIL_VERIFICATION = "optional" if config("DJANGO_DEBUG", cast=bool, default=False) else "mandatory"
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[SaaS] "
+ACCOUNT_ADAPTER = "cfehome.adapters.RoleBasedAccountAdapter"
 
 AUTHENTICATION_BACKENDS = [
-    # Needed to login by username in Django admin, regardless of `allauth`
     'django.contrib.auth.backends.ModelBackend',
-    # `allauth` specific authentication methods, such as login by email
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
 SOCIALACCOUNT_PROVIDERS = {
     "github": {
-        "VERIFIED_EMAIL": True
-    }
+        "VERIFIED_EMAIL": True,
+        "APP": {
+            "client_id": config("GITHUB_CLIENT_ID", default=""),
+            "secret": config("GITHUB_CLIENT_SECRET", default=""),
+        },
+    },
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "APP": {
+            "client_id": config("GOOGLE_CLIENT_ID", default=""),
+            "secret": config("GOOGLE_CLIENT_SECRET", default=""),
+        },
+    },
 }
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
 
 
 # Internationalization

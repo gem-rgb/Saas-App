@@ -32,7 +32,6 @@ def extract_user_features(user):
     Returns dict of raw features used by all ML models.
     """
     from analytics.models import UserActivity
-    from visits.models import PageVisit
     from subscriptions.models import UserSubscription
 
     now = timezone.now()
@@ -64,10 +63,8 @@ def extract_user_features(user):
     except UserSubscription.DoesNotExist:
         pass
 
-    # Page visit count (total from visits app)
-    total_page_visits = PageVisit.objects.filter(
-        timestamp__gte=window_start
-    ).count()
+    # Use activity-based page views instead of PageVisit model
+    total_page_visits = page_views
 
     return {
         'total_actions': total_actions,

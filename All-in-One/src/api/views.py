@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -122,12 +123,11 @@ def portal_summary_view(request):
 @permission_classes([IsAuthenticated])
 def marketplace_tasks_view(request):
     """
-    Marketplace Tasks API
-    GET: List user's tasks
-    POST: Create a new task
+    Marketplace Tasks API.
+    GET  — list tasks filtered by role, with optional ?q= search.
+    POST — create a new draft task.
     """
-    from api.serializers.marketplace import TaskOrderSerializer
-    from rest_framework import status
+    from api.serializers.marketplace import TaskOrderSerializer as MarketplaceSerializer
     
     if request.method == 'GET':
         role = get_platform_role(request.user)
@@ -149,15 +149,15 @@ def marketplace_tasks_view(request):
                 Q(description__icontains=query)
             )
             
-        serializer = TaskOrderSerializer(tasks[:50], many=True)
+        serializer = MarketplaceSerializer(tasks[:50], many=True)
         return Response({"role": role, "tasks": serializer.data})
-        
-    elif request.method == 'POST':
-        serializer = TaskOrderSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(student=request.user, status=TaskOrder.Status.DRAFT)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # POST — create
+    serializer = MarketplaceSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(student=request.user, status=TaskOrder.Status.DRAFT)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

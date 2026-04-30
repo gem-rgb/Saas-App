@@ -38,9 +38,9 @@
 
   <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p class="text-sm text-slate-500 dark:text-slate-400">Page Views</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ total_visits }}</p>
-      <p class="text-sm text-slate-500 dark:text-slate-400">{{ recent_visits }} in the last 7 days</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Total Tasks</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ summary.total_tasks|default:0 }}</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">across all statuses</p>
     </div>
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <p class="text-sm text-slate-500 dark:text-slate-400">Activity Score</p>

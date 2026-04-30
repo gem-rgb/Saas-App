@@ -12,7 +12,6 @@ from marketplace.permissions import can_receive_work, get_platform_role
 from operations.models import EscalationCase, Region, TaskerPerformanceSnapshot
 from subscriptions.models import UserSubscription
 from trust.models import AIInterviewSession, IdentityVerification, TaskerApplication
-from visits.models import PageVisit
 
 
 def _tasker_profile(user):
@@ -83,30 +82,31 @@ def _collect_common_context(request):
         }
 
     recent_activities = UserActivity.objects.filter(user=user).order_by("-timestamp")[:8]
-    total_visits = PageVisit.objects.count()
-    recent_visits = PageVisit.objects.filter(timestamp__gte=now - datetime.timedelta(days=7)).count()
 
+    # Build 7-day usage chart with a single aggregated query (O(1) vs O(7))
+    week_start = (now - datetime.timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+    daily_counts = dict(
+        UserActivity.objects.filter(user=user, timestamp__gte=week_start)
+        .extra(select={"day_date": "DATE(timestamp)"})
+        .values_list("day_date")
+        .annotate(count=models.Count("id"))
+        .values_list("day_date", "count")
+    )
     usage_chart = []
     for i in range(6, -1, -1):
         day = now - datetime.timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
-        count = UserActivity.objects.filter(user=user, timestamp__gte=day_start, timestamp__lte=day_end).count()
-        usage_chart.append(
-            {
-                "day": day.strftime("%a"),
-                "count": count,
-                "height": max(8, min(count * 15, 100)),
-            }
-        )
+        count = daily_counts.get(day.date(), 0)
+        usage_chart.append({
+            "day": day.strftime("%a"),
+            "count": count,
+            "height": max(8, min(count * 15, 100)),
+        })
 
     return {
         "portal_role": portal_role,
         "sub_info": sub_info,
         "analytics": analytics,
         "recent_activities": recent_activities,
-        "total_visits": total_visits,
-        "recent_visits": recent_visits,
         "usage_chart": usage_chart,
         "is_tasker_gate_open": can_receive_work(_tasker_profile(user)),
         "tasker_gate": _tasker_gate(getattr(user, "tasker_application", None)),
