@@ -1,8 +1,9 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Q
 
-from marketplace.models import TaskOrder
+from marketplace.models import TaskNotification, TaskOrder
 from marketplace.permissions import get_platform_role
 from marketplace.serializers import TaskOrderSerializer
 from operations.models import EscalationCase, Region, TaskerPerformanceSnapshot
@@ -138,6 +139,15 @@ def marketplace_tasks_view(request):
             tasks = TaskOrder.objects.filter(status__in=["open", "assigned", "in_progress", "quality_review", "revision", "escalated"]).order_by("-created_at")
         else:
             tasks = TaskOrder.objects.all().order_by("-created_at")
+
+        # AJAX live search filtering
+        query = request.GET.get('q', '').strip()
+        if query:
+            tasks = tasks.filter(
+                Q(title__icontains=query) |
+                Q(subject__icontains=query) |
+                Q(description__icontains=query)
+            )
             
         serializer = TaskOrderSerializer(tasks[:50], many=True)
         return Response({"role": role, "tasks": serializer.data})
@@ -229,3 +239,20 @@ def operations_overview_view(request):
             for snapshot in snapshots
         ],
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def notification_mark_read_view(request):
+    """Mark a single notification as read."""
+    from rest_framework import status
+    notif_id = request.data.get('id')
+    if not notif_id:
+        return Response({"detail": "Notification ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        notif = TaskNotification.objects.get(pk=notif_id, recipient=request.user)
+        notif.is_read = True
+        notif.save(update_fields=['is_read'])
+        return Response({"status": "ok", "message": "Notification dismissed."})
+    except TaskNotification.DoesNotExist:
+        return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)

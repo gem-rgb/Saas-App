@@ -3,7 +3,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Profile</h1>
-    <form action="" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <form action="" method="POST" enctype="multipart/form-data" class="space-y-6" id="ajax-profile-form">
         {% csrf_token %}
         <div class="bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 p-6">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Personal Info</h2>
@@ -52,3 +52,36 @@
     </form>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const form = document.getElementById('ajax-profile-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = form.querySelector('#profile-save');
+        const formData = new FormData(form);
+
+        SaaSAjax.clearFieldErrors(form);
+        SaaSAjax.setButtonLoading(btn, true);
+
+        try {
+            const result = await SaaSAjax.post(form.action || window.location.href, formData);
+
+            if (result.status === 'ok') {
+                SaaSAjax.showToast(result.message, 'success');
+            } else if (result.errors) {
+                SaaSAjax.showFieldErrors(form, result.errors);
+                SaaSAjax.showToast('Please fix the errors below.', 'error');
+            }
+        } catch (err) {
+            SaaSAjax.showToast('Network error. Please try again.', 'error');
+        } finally {
+            SaaSAjax.setButtonLoading(btn, false);
+        }
+    });
+})();
+</script>
+{% endblock extra_js %}

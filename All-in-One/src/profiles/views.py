@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 from django.contrib.auth import get_user_model
 from .models import UserProfile
@@ -49,6 +49,7 @@ def profile_detail_view(request, username=None, *args, **kwargs):
 @login_required
 def profile_edit_view(request):
     user = request.user
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     profile_obj, _ = UserProfile.objects.get_or_create(user=user)
     user_form = UserBasicForm(instance=user)
     profile_form = UserProfileForm(instance=profile_obj)
@@ -59,8 +60,20 @@ def profile_edit_view(request):
         if user_form.is_valid() and profile_form.is_valid():
             user_form.save()
             profile_form.save()
+            if is_ajax:
+                return JsonResponse({
+                    "status": "ok",
+                    "message": "Your profile has been updated."
+                })
             messages.success(request, "Your profile has been updated.")
             return redirect("profile_edit")
+        else:
+            if is_ajax:
+                errors = {**user_form.errors, **profile_form.errors}
+                return JsonResponse({
+                    "status": "error",
+                    "errors": errors
+                }, status=400)
     
     context = {
         "user_form": user_form,

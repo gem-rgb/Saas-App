@@ -9,12 +9,30 @@
 
     <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <!-- Header -->
-        <div class="mb-10 flex items-center justify-between">
+        <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">My Tasks</h1>
                 <p class="text-lg text-slate-600 dark:text-slate-400">Manage your assignments and track progress.</p>
             </div>
-            <div>
+            <div class="flex items-center gap-3">
+                <!-- AJAX Live Search -->
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                        type="text"
+                        id="marketplace-search"
+                        placeholder="Search tasks…"
+                        class="pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64 transition-all"
+                    >
+                    <div id="search-spinner" class="absolute right-3 top-1/2 -translate-y-1/2 hidden">
+                        <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </div>
+                </div>
                 <a href="{% url 'marketplace:task_create' %}" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -55,6 +73,7 @@
         <!-- Task List -->
         <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Recent Tasks</h2>
         
+        <div id="task-grid">
         {% if tasks %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {% for task in tasks %}
@@ -100,6 +119,88 @@
                 </a>
             </div>
         {% endif %}
+        </div>
     </div>
 </div>
 {% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const searchInput = document.getElementById('marketplace-search');
+    const taskGrid = document.getElementById('task-grid');
+    const spinner = document.getElementById('search-spinner');
+    if (!searchInput || !taskGrid) return;
+
+    const STATUS_COLORS = {
+        'draft': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
+        'open': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+        'posted': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+        'assigned': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+        'in_progress': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+        'quality_review': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+        'revision': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+        'completed': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+    };
+
+    function buildTaskCard(task) {
+        const statusClass = STATUS_COLORS[task.status] || STATUS_COLORS['assigned'];
+        const deadline = task.deadline ? new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set';
+        const budget = task.budget_cents ? `${task.currency || 'USD'} ${Number(task.budget_cents).toFixed(2)}` : '';
+
+        return `
+            <a href="/marketplace/tasks/${task.id}/" class="group relative flex flex-col rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass}">
+                        ${task.status_display || task.status}
+                    </span>
+                    ${budget ? `<span class="text-sm font-medium text-slate-600 dark:text-slate-400">${budget}</span>` : ''}
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">${task.title}</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6 flex-grow">${task.description || ''}</p>
+                <div class="flex items-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-auto">
+                    <svg class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Due: ${deadline}
+                </div>
+            </a>
+        `;
+    }
+
+    const doSearch = SaaSAjax.debounce(async function(query) {
+        spinner.classList.remove('hidden');
+        try {
+            const data = await SaaSAjax.get('/api/v1/marketplace/tasks/?q=' + encodeURIComponent(query));
+            const tasks = data.tasks || [];
+            if (tasks.length === 0) {
+                taskGrid.innerHTML = `
+                    <div class="rounded-3xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 p-12 text-center shadow-sm">
+                        <p class="text-slate-500 dark:text-slate-400">No tasks matching "<strong>${query}</strong>"</p>
+                    </div>
+                `;
+            } else {
+                taskGrid.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${tasks.map(buildTaskCard).join('')}</div>`;
+            }
+        } catch (e) {
+            SaaSAjax.showToast('Search failed. Please try again.', 'error');
+        } finally {
+            spinner.classList.add('hidden');
+        }
+    }, 300);
+
+    // Store original grid HTML for clearing search
+    const originalGrid = taskGrid.innerHTML;
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        if (query.length === 0) {
+            taskGrid.innerHTML = originalGrid;
+            spinner.classList.add('hidden');
+            return;
+        }
+        if (query.length >= 2) {
+            doSearch(query);
+        }
+    });
+})();
+</script>
+{% endblock extra_js %}

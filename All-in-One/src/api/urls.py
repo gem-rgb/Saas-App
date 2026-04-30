@@ -14,4 +14,5 @@ urlpatterns = [
     path('v1/marketplace/tasks/', views.marketplace_tasks_view, name='marketplace-tasks'),
     path('v1/trust/application/', views.trust_application_view, name='trust-application'),
     path('v1/operations/overview/', views.operations_overview_view, name='operations-overview'),
+    path('v1/notifications/mark-read/', views.notification_mark_read_view, name='notification-mark-read'),
 ]
