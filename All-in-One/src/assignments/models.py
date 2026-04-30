@@ -122,6 +122,7 @@ class Assignment(models.Model):
     # Metadata
     budget_cents = models.IntegerField(null=True, blank=True, help_text="Budget in cents (e.g., 10000 = $100)")
     ml_match_score = models.FloatField(default=0.0, help_text="ML engine match score with assigned tasker")
+    verification_rubric = models.JSONField(default=dict, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -214,3 +215,73 @@ class AssignmentSubmission(models.Model):
 
     def __str__(self):
         return f"Submission: {self.assignment.title} by {self.tasker.user.username}"
+
+
+class AssignmentVerification(models.Model):
+    """AI-powered assignment verification results"""
+    
+    class VerificationStatus(models.TextChoices):
+        PENDING = "pending", "Pending Verification"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Verification Failed"
+    
+    class AcademicField(models.TextChoices):
+        ENGINEERING = "engineering", "Engineering"
+        MEDICINE = "medicine", "Medicine"
+        TECHNOLOGY = "technology", "Technology"
+        ARCHITECTURE = "architecture", "Architecture"
+        LAW = "law", "Law"
+        BUSINESS = "business", "Business"
+        SCIENCES = "sciences", "Sciences"
+        HUMANITIES = "humanities", "Humanities"
+    
+    # Link to submission
+    submission = models.OneToOneField(AssignmentSubmission, on_delete=models.CASCADE, related_name="verification")
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE, related_name="verifications")
+    
+    # Verification details
+    status = models.CharField(max_length=20, choices=VerificationStatus.choices, default=VerificationStatus.PENDING)
+    academic_field = models.CharField(max_length=50, choices=AcademicField.choices)
+    subfield = models.CharField(max_length=255, blank=True, default="")  # e.g., "Mechanical" for Engineering
+    submission_type = models.CharField(max_length=50)  # e.g., "code", "document", "calculations"
+    
+    # Verification scores
+    overall_score = models.FloatField(default=0.0, help_text="Overall score 0-100")
+    passed = models.BooleanField(default=False)  # Passed if score >= 70
+    
+    # Detailed results
+    verification_results = models.JSONField(default=dict, blank=True)  # Stores detailed verification data
+    issues_found = models.JSONField(default=list, blank=True)  # List of identified issues
+    suggestions = models.JSONField(default=list, blank=True)  # Improvement suggestions
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["academic_field", "passed"]),
+        ]
+    
+    def __str__(self):
+        return f"Verification: {self.assignment.title} - {self.get_status_display()}"
+
+
+class AssignmentVerificationCheck(models.Model):
+    """Individual checks performed during verification"""
+    
+    verification = models.ForeignKey(AssignmentVerification, on_delete=models.CASCADE, related_name="checks")
+    check_type = models.CharField(max_length=50)  # e.g., "code_quality", "writing_quality"
+    score = models.FloatField(help_text="Score for this specific check 0-100")
+    details = models.JSONField(default=dict, blank=True)  # Detailed check results
+    passed = models.BooleanField(default=False)  # Passed if score >= 70
+    
+    class Meta:
+        ordering = ["check_type"]
+    
+    def __str__(self):
+        return f"{self.check_type}: {self.score}/100"

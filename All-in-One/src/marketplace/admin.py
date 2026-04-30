@@ -5,6 +5,7 @@ from marketplace.models import (
     TaskAuditEvent,
     TaskCategory,
     TaskConversationMessage,
+    TaskConversationReadState,
     TaskMatchSuggestion,
     TaskNotification,
     TaskOrder,
@@ -87,6 +88,13 @@ class TaskConversationMessageAdmin(admin.ModelAdmin):
     list_filter = ("is_ai", "channel", "created_at")
 
 
+@admin.register(TaskConversationReadState)
+class TaskConversationReadStateAdmin(admin.ModelAdmin):
+    list_display = ("task", "user", "last_read_at", "updated_at")
+    search_fields = ("task__title", "user__username", "user__email")
+    readonly_fields = ("created_at", "updated_at")
+
+
 @admin.register(TaskNotification)
 class TaskNotificationAdmin(admin.ModelAdmin):
     list_display = ("recipient", "task", "channel", "title", "is_read", "created_at")
@@ -97,4 +105,3 @@ class TaskNotificationAdmin(admin.ModelAdmin):
 class TaskAuditEventAdmin(admin.ModelAdmin):
     list_display = ("event_type", "task", "actor_role", "created_at")
     list_filter = ("event_type", "actor_role", "created_at")
-

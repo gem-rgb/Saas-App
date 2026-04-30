@@ -12,7 +12,7 @@ def get_headers():
         "Content-Type": "application/json",
     }
 
-def initialize_transaction(email, amount_minor, reference=None, callback_url=None, metadata=None):
+def initialize_transaction(email, amount_minor, reference=None, callback_url=None, metadata=None, plan=None):
     """
     Initialize a Paystack transaction.
     amount_minor is the amount in the smallest currency unit (e.g. Kobo for NGN, Cents for USD).
@@ -33,6 +33,9 @@ def initialize_transaction(email, amount_minor, reference=None, callback_url=Non
     if metadata:
         payload["metadata"] = metadata
         
+    if plan:
+        payload["plan"] = plan
+        
     response = requests.post(url, json=payload, headers=get_headers())
     response.raise_for_status()
     return response.json()
@@ -44,5 +47,57 @@ def verify_transaction(reference):
     """
     url = f"{BASE_URL}/transaction/verify/{reference}"
     response = requests.get(url, headers=get_headers())
+    response.raise_for_status()
+    return response.json()
+
+def create_customer(email, first_name="", last_name="", metadata=None):
+    """
+    Create a Paystack customer.
+    """
+    url = f"{BASE_URL}/customer"
+    payload = {
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+    }
+    if metadata:
+        payload["metadata"] = metadata
+        
+    response = requests.post(url, json=payload, headers=get_headers())
+    response.raise_for_status()
+    data = response.json()
+    return data.get("data", {}).get("customer_code")
+
+def create_plan(name, amount_minor, interval, description=None):
+    """
+    Create a Paystack Plan.
+    interval can be: hourly, daily, weekly, monthly, biannually, annually.
+    amount_minor is in kobo/cents.
+    """
+    url = f"{BASE_URL}/plan"
+    payload = {
+        "name": name,
+        "amount": amount_minor,
+        "interval": interval,
+    }
+    if description:
+        payload["description"] = description
+        
+    response = requests.post(url, json=payload, headers=get_headers())
+    response.raise_for_status()
+    data = response.json()
+    return data.get("data", {}).get("plan_code")
+
+def cancel_subscription(subscription_code, token):
+    """
+    Disable a Paystack subscription.
+    Requires the subscription_code and the email token.
+    """
+    url = f"{BASE_URL}/subscription/disable"
+    payload = {
+        "code": subscription_code,
+        "token": token
+    }
+    response = requests.post(url, json=payload, headers=get_headers())
     response.raise_for_status()
     return response.json()

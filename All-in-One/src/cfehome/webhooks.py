@@ -1,12 +1,13 @@
 import json
-import stripe
+import hmac
+import hashlib
 from django.conf import settings
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 
-import helpers.billing
+import helpers.paystack_billing
 from customers.models import Customer
 from subscriptions.models import Subscription, UserSubscription
 
@@ -15,35 +16,30 @@ User = get_user_model()
 
 @csrf_exempt
 @require_POST
-def stripe_webhook_view(request):
-    """Handle Stripe webhook events for real-time subscription sync."""
+def paystack_webhook_view(request):
+    """Handle Paystack webhook events for real-time subscription sync."""
     payload = request.body
-    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE', '')
-    webhook_secret = settings.STRIPE_WEBHOOK_SECRET
+    sig_header = request.META.get('HTTP_X_PAYSTACK_SIGNATURE', '')
+    webhook_secret = getattr(settings, "PAYSTACK_SECRET_KEY", "")
 
-    if not webhook_secret:
-        # No webhook secret configured — skip verification in dev
-        try:
-            event = json.loads(payload)
-        except json.JSONDecodeError:
-            return HttpResponse(status=400)
-    else:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
-        except ValueError:
-            return HttpResponse(status=400)
-        except stripe.error.SignatureVerificationError:
+    if webhook_secret:
+        # Verify Paystack signature
+        hash = hmac.new(webhook_secret.encode('utf-8'), payload, hashlib.sha512).hexdigest()
+        if hash != sig_header:
             return HttpResponse(status=400)
 
-    event_type = event.get('type', '')
-    data = event.get('data', {}).get('object', {})
+    try:
+        event = json.loads(payload)
+    except json.JSONDecodeError:
+        return HttpResponse(status=400)
+
+    event_type = event.get('event', '')
+    data = event.get('data', {})
 
     handlers = {
-        'checkout.session.completed': handle_checkout_completed,
-        'invoice.payment_succeeded': handle_payment_succeeded,
-        'invoice.payment_failed': handle_payment_failed,
-        'customer.subscription.updated': handle_subscription_updated,
-        'customer.subscription.deleted': handle_subscription_deleted,
+        'charge.success': handle_charge_success,
+        'subscription.create': handle_subscription_create,
+        'subscription.disable': handle_subscription_disable,
     }
 
     handler = handlers.get(event_type)
@@ -57,26 +53,67 @@ def stripe_webhook_view(request):
     return HttpResponse(status=200)
 
 
-def handle_checkout_completed(data):
-    """Process completed checkout session."""
-    customer_id = data.get('customer')
-    subscription_id = data.get('subscription')
-    if not subscription_id:
+def handle_charge_success(data):
+    """Process successful charge, which could be a subscription initialization."""
+    customer_data = data.get('customer', {})
+    customer_code = customer_data.get('customer_code')
+    metadata = data.get('metadata', {})
+    
+    plan_code = metadata.get('plan_id')
+    if not plan_code:
+        # If it's a direct charge without a plan, ignore for subscriptions
         return
 
-    sub_response = helpers.billing.get_subscription(subscription_id, raw=True)
-    sub_data = helpers.billing.serialize_subscription_data(sub_response)
-    plan_id = sub_response.plan.id if sub_response.plan else None
-
     try:
-        user = User.objects.get(customer__stripe_id=customer_id)
+        user = User.objects.get(customer__paystack_id=customer_code)
     except User.DoesNotExist:
         return
 
     sub_obj = None
-    if plan_id:
+    if plan_code:
         try:
-            sub_obj = Subscription.objects.get(subscriptionprice__stripe_id=plan_id)
+            sub_obj = Subscription.objects.get(subscriptionprice__paystack_id=plan_code)
+        except Subscription.DoesNotExist:
+            pass
+
+    # The subscription code is not always in the charge event directly unless it's a renewal
+    # but we can try to find it or we wait for subscription.create
+    subscription_code = data.get('subscription_code')
+    
+    # We update or create assuming the transaction was successful
+    defaults = {
+        'subscription': sub_obj,
+        'user_cancelled': False,
+        'status': 'active',
+    }
+    
+    if subscription_code:
+        defaults['paystack_id'] = subscription_code
+
+    UserSubscription.objects.update_or_create(
+        user=user,
+        defaults=defaults
+    )
+
+
+def handle_subscription_create(data):
+    """Sync subscription creation."""
+    subscription_code = data.get('subscription_code')
+    customer_code = data.get('customer', {}).get('customer_code')
+    plan_code = data.get('plan', {}).get('plan_code')
+    
+    if not subscription_code or not customer_code:
+        return
+
+    try:
+        user = User.objects.get(customer__paystack_id=customer_code)
+    except User.DoesNotExist:
+        return
+
+    sub_obj = None
+    if plan_code:
+        try:
+            sub_obj = Subscription.objects.get(subscriptionprice__paystack_id=plan_code)
         except Subscription.DoesNotExist:
             pass
 
@@ -84,69 +121,21 @@ def handle_checkout_completed(data):
         user=user,
         defaults={
             'subscription': sub_obj,
-            'stripe_id': subscription_id,
+            'paystack_id': subscription_code,
             'user_cancelled': False,
-            **sub_data,
+            'status': 'active',
         }
     )
 
 
-def handle_payment_succeeded(data):
-    """Update subscription period on successful payment."""
-    subscription_id = data.get('subscription')
-    if not subscription_id:
+def handle_subscription_disable(data):
+    """Cancel subscription when disabled in Paystack."""
+    subscription_code = data.get('subscription_code')
+    if not subscription_code:
         return
 
     try:
-        user_sub = UserSubscription.objects.get(stripe_id=subscription_id)
-    except UserSubscription.DoesNotExist:
-        return
-
-    sub_data = helpers.billing.get_subscription(subscription_id, raw=False)
-    for k, v in sub_data.items():
-        setattr(user_sub, k, v)
-    user_sub.save()
-
-
-def handle_payment_failed(data):
-    """Mark subscription as past_due on failed payment."""
-    subscription_id = data.get('subscription')
-    if not subscription_id:
-        return
-
-    try:
-        user_sub = UserSubscription.objects.get(stripe_id=subscription_id)
-        user_sub.status = 'past_due'
-        user_sub.save()
-    except UserSubscription.DoesNotExist:
-        pass
-
-
-def handle_subscription_updated(data):
-    """Sync subscription status changes."""
-    subscription_id = data.get('id')
-    if not subscription_id:
-        return
-
-    try:
-        user_sub = UserSubscription.objects.get(stripe_id=subscription_id)
-    except UserSubscription.DoesNotExist:
-        return
-
-    sub_data = helpers.billing.get_subscription(subscription_id, raw=False)
-    for k, v in sub_data.items():
-        setattr(user_sub, k, v)
-    user_sub.save()
-
-
-def handle_subscription_deleted(data):
-    """Cancel subscription when deleted in Stripe."""
-    subscription_id = data.get('id')
-    if not subscription_id:
-        return
-
-    try:
-        user_sub = UserSubscription.objects.get(stripe_id=subscription_id)
+        user_sub = UserSubscription.objects.get(paystack_id=subscription_code)
         user_sub.status = 'canceled'
         user_sub.active = False
         user_sub.user_cancelled = True

@@ -1,55 +1,91 @@
 from django.contrib.auth.decorators import login_required
+from django.db.models import Avg
 from django.shortcuts import render
 
+from marketplace.models import TaskOrder
+from marketplace.permissions import can_receive_work, get_platform_role
+from marketplace.services import recommend_taskers_for_subject
+from operations.models import EscalationCase
+from subscriptions.utils import subscription_has_feature
+
 from .models import UserActivity
-from . import ml_engine
+
+
+def _has_analytics_access(user):
+    role = get_platform_role(user)
+    return role in {"manager", "admin"} or subscription_has_feature(user, "analytics_dashboard")
+
+
+def _tasks_for_role(user):
+    role = get_platform_role(user)
+    if role == "student":
+        return TaskOrder.objects.filter(student=user)
+    if role == "tasker":
+        tasker = getattr(user, "tasker_profile", None)
+        if tasker is None or not can_receive_work(tasker):
+            return TaskOrder.objects.none()
+        return TaskOrder.objects.filter(assigned_tasker=tasker)
+    if role == "manager":
+        return TaskOrder.objects.filter(
+            status__in=[
+                TaskOrder.Status.OPEN,
+                TaskOrder.Status.ASSIGNED,
+                TaskOrder.Status.IN_PROGRESS,
+                TaskOrder.Status.QUALITY_REVIEW,
+                TaskOrder.Status.REVISION,
+                TaskOrder.Status.ESCALATED,
+            ]
+        )
+    return TaskOrder.objects.all()
 
 
 @login_required
 def analytics_dashboard_view(request):
-    """ML-powered analytics dashboard."""
-    user = request.user
+    """Assignment insights dashboard with subscription gating."""
+    if not _has_analytics_access(request.user):
+        return render(
+            request,
+            "analytics/dashboard.html",
+            {
+                "locked": True,
+                "upgrade_url": "/pricing/",
+            },
+        )
 
-    # Track this view as an activity
-    UserActivity.objects.create(
-        user=user,
-        action=UserActivity.ActionChoices.PAGE_VIEW,
-        path=request.path,
-        metadata={"page": "analytics_dashboard"}
+    tasks = _tasks_for_role(request.user).select_related("student", "assigned_tasker", "category")
+    summary = {
+        "total_assignments": tasks.count(),
+        "open_assignments": tasks.filter(status__in=[TaskOrder.Status.DRAFT, TaskOrder.Status.OPEN]).count(),
+        "active_assignments": tasks.filter(status__in=[TaskOrder.Status.ASSIGNED, TaskOrder.Status.IN_PROGRESS, TaskOrder.Status.QUALITY_REVIEW, TaskOrder.Status.REVISION]).count(),
+        "completed_assignments": tasks.filter(status=TaskOrder.Status.COMPLETED).count(),
+        "disputes": EscalationCase.objects.filter(task__in=tasks).count(),
+    }
+    average_rating = tasks.aggregate(avg=Avg("ratings__overall_rating"))["avg"] or 0.0
+    average_accuracy = tasks.aggregate(avg=Avg("ratings__accuracy_rating"))["avg"] or 0.0
+    assignment_health = max(
+        0,
+        min(
+            100,
+            round((summary["completed_assignments"] * 12) + (average_rating * 12) + (average_accuracy * 8) - (summary["disputes"] * 6)),
+        ),
     )
 
-    # Run ML analysis
-    analysis = ml_engine.analyze_user(user)
-
-    # Get recent activity for the feed
-    recent_activities = UserActivity.objects.filter(
-        user=user
-    ).order_by('-timestamp')[:10]
-
-    # Usage data for chart (last 7 days)
-    from django.utils import timezone
-    import datetime
-    now = timezone.now()
-    usage_chart_data = []
-    for i in range(6, -1, -1):
-        day = now - datetime.timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
-        count = UserActivity.objects.filter(
-            user=user,
-            timestamp__gte=day_start,
-            timestamp__lte=day_end,
-        ).count()
-        usage_chart_data.append({
-            "day": day.strftime("%a"),
-            "count": count,
-            "height": max(4, min(count * 12, 100)),  # CSS height percentage
-        })
+    focus_task = tasks.first()
+    recommended_taskers = []
+    if focus_task is not None:
+        recommended_taskers = recommend_taskers_for_subject(focus_task.subject)[:5]
 
     context = {
-        **analysis,
-        "recent_activities": recent_activities,
-        "usage_chart_data": usage_chart_data,
+        "locked": False,
+        "summary": summary,
+        "assignment_health": assignment_health,
+        "average_rating": average_rating,
+        "average_accuracy": average_accuracy,
+        "recent_tasks": tasks.order_by("-updated_at")[:8],
+        "recent_disputes": EscalationCase.objects.filter(task__in=tasks).select_related("task", "region").order_by("-opened_at")[:6],
+        "recommended_taskers": recommended_taskers,
+        "portal_role": get_platform_role(request.user),
+        "focus_subject": focus_task.subject if focus_task else "Academic writing",
     }
     return render(request, "analytics/dashboard.html", context)
 

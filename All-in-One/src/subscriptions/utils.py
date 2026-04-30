@@ -1,5 +1,3 @@
-import helpers.billing
-
 from django.db.models import Q
 from customers.models import Customer
 from subscriptions.models import Subscription, UserSubscription, SubscriptionStatus
@@ -28,28 +26,25 @@ def refresh_active_users_subscriptions(
     qs_count = qs.count()
     for obj in qs:
         if verbose:
-            print("Updating user", obj.user, obj.subscription, obj.current_period_end)
-        if obj.stripe_id:
-            sub_data = helpers.billing.get_subscription(obj.stripe_id, raw=False)
-            for k,v in sub_data.items():
-                setattr(obj, k, v)
-            obj.save()
-            complete_count += 1
+            print("Refreshing subscription", obj.user, obj.subscription, obj.current_period_end)
+        obj.save()
+        complete_count += 1
     return complete_count == qs_count
 
 def clear_dangling_subs():
-    qs = Customer.objects.filter(stripe_id__isnull=False)
+    qs = Customer.objects.filter(paystack_id__isnull=False)
+    cleaned_count = 0
     for customer_obj in qs:
         user = customer_obj.user
-        customer_stripe_id = customer_obj.stripe_id
-        print(f"Sync {user} - {customer_stripe_id} subs and remove old ones")
-        subs =  helpers.billing.get_customer_active_subscriptions(customer_stripe_id)
-        for sub in subs:
-            existing_user_subs_qs = UserSubscription.objects.filter(stripe_id__iexact=f"{sub.id}".strip())
-            if existing_user_subs_qs.exists():
-                continue
-            helpers.billing.cancel_subscription(sub.id, reason="Dangling active subscription", cancel_at_period_end=False)
-            # print(sub.id, existing_user_subs_qs.exists())
+        if not UserSubscription.objects.filter(user=user).exists():
+            UserSubscription.objects.create(
+                user=user,
+                active=False,
+                status=SubscriptionStatus.CANCELED,
+                user_cancelled=True,
+            )
+            cleaned_count += 1
+    return cleaned_count
 
 def sync_subs_group_permissions():
     qs = Subscription.objects.filter(active=True)
@@ -57,3 +52,16 @@ def sync_subs_group_permissions():
         sub_perms = obj.permissions.all()
         for group in obj.groups.all():
             group.permissions.set(sub_perms)
+
+
+def subscription_has_feature(user, feature_code):
+    if not user or not user.is_authenticated:
+        return False
+    user_sub = UserSubscription.objects.filter(user=user).select_related("subscription").first()
+    return bool(user_sub and user_sub.has_feature(feature_code))
+
+
+def user_subscription_plan(user):
+    if not user or not user.is_authenticated:
+        return None
+    return UserSubscription.objects.filter(user=user).select_related("subscription").first()

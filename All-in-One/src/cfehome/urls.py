@@ -7,6 +7,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from auth import views as auth_views
+from auth.permissions import social_provider_enabled
 from checkouts import views as checkout_views
 from landing import views as landing_views
 from subscriptions import views as subscriptions_views
@@ -22,6 +23,16 @@ from .views import (
     staff_only_view,
     services_view,
 )
+
+social_login_patterns = []
+if not social_provider_enabled("google"):
+    social_login_patterns.append(
+        path("accounts/google/login/", auth_views.social_login_guard_view, {"provider": "google"}, name="socialaccount_google_login_guard")
+    )
+if not social_provider_enabled("github"):
+    social_login_patterns.append(
+        path("accounts/github/login/", auth_views.social_login_guard_view, {"provider": "github"}, name="socialaccount_github_login_guard")
+    )
 
 urlpatterns = [
     path("", landing_views.landing_dashboard_page_view, name='home'),
@@ -50,6 +61,7 @@ urlpatterns = [
     path("trust/", include("trust.urls")),
     path("operations/", include("operations.urls")),
     # Account & Billing
+    *social_login_patterns,
     path('accounts/billing/', subscriptions_views.user_subscription_view, name='user_subscription'),
     path('accounts/billing/cancel', subscriptions_views.user_subscription_cancel_view, name='user_subscription_cancel'),
     path('accounts/', include('allauth.urls')),
@@ -62,7 +74,7 @@ urlpatterns = [
     # API
     path('api/', include('api.urls')),
     # Webhooks
-    path('webhooks/stripe/', webhooks.stripe_webhook_view, name='stripe-webhook'),
+    path('webhooks/paystack/', webhooks.paystack_webhook_view, name='paystack-webhook'),
     # Protected
     path('protected/user-only/', user_only_view),
     path('protected/staff-only/', staff_only_view),

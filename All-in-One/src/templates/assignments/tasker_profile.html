@@ -41,13 +41,19 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Edit Profile</h2>
         <form method="post" class="space-y-4">
           {% csrf_token %}
+          {% if form.errors %}
+          <div class="rounded-xl bg-red-50 p-4 border border-red-200">
+            <div class="text-sm text-red-700">Please correct the errors below.</div>
+            <div class="mt-2 text-sm text-red-700">{{ form.errors }}</div>
+          </div>
+          {% endif %}
           
           <!-- Skills -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.skills.label }}
             </label>
-            {% render_form_field form.skills %}
+            {{ form.skills }}
           </div>
 
           <!-- Skill Level -->
@@ -55,7 +61,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.skill_level.label }}
             </label>
-            {% render_form_field form.skill_level %}
+            {{ form.skill_level }}
           </div>
 
           <!-- Bio -->
@@ -63,7 +69,7 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.bio.label }}
             </label>
-            {% render_form_field form.bio %}
+            {{ form.bio }}
           </div>
 
           <!-- Availability -->
@@ -71,7 +77,15 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.availability_hours_per_week.label }}
             </label>
-            {% render_form_field form.availability_hours_per_week %}
+            {{ form.availability_hours_per_week }}
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Competency Areas
+            </label>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Pick the task categories you want the recommendation engine to surface.</p>
+            {{ form.competency_areas }}
           </div>
 
           <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
@@ -106,11 +120,15 @@
       <!-- Skills Display -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Skills</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{{ tasker.skills }}</p>
+        <h3 class="mt-6 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Competencies</h3>
         <div class="flex flex-wrap gap-2">
-          {% for skill in tasker.skills|split:"," %}
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-              {{ skill|trim }}
+          {% for competency in tasker.competency_areas.all %}
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-200">
+              {{ competency.name }}
             </span>
+          {% empty %}
+            <span class="text-sm text-gray-500 dark:text-gray-400">No competencies selected yet.</span>
           {% endfor %}
         </div>
       </div>

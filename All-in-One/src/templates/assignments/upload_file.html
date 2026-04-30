@@ -18,7 +18,7 @@
           <label for="{{ form.file.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {{ form.file.label }}
           </label>
-          {% render_form_field form.file %}
+          {{ form.file }}
           <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Supported: PDF, DOC, DOCX, TXT, XLSX, CSV, ZIP, JPG, PNG, PY, JS, JSON</p>
           {% if form.file.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.file.errors.0 }}</p>
@@ -30,7 +30,7 @@
           <label for="{{ form.file_type.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {{ form.file_type.label }}
           </label>
-          {% render_form_field form.file_type %}
+          {{ form.file_type }}
           <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">e.g., 'instruction', 'data', 'reference', 'submission'</p>
           {% if form.file_type.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.file_type.errors.0 }}</p>
@@ -42,7 +42,7 @@
           <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {{ form.description.label }}
           </label>
-          {% render_form_field form.description %}
+          {{ form.description }}
           {% if form.description.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.description.errors.0 }}</p>
           {% endif %}

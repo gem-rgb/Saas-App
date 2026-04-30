@@ -159,6 +159,10 @@ class TaskOrderSerializer(serializers.ModelSerializer):
     payments = TaskPaymentSerializer(many=True, read_only=True)
     notifications = TaskNotificationSerializer(many=True, read_only=True)
     audit_events = TaskAuditEventSerializer(many=True, read_only=True)
+    effective_budget_cents = serializers.SerializerMethodField()
+    display_price_label = serializers.SerializerMethodField()
+    price_source_label = serializers.SerializerMethodField()
+    estimated_price_cents = serializers.SerializerMethodField()
 
     class Meta:
         model = TaskOrder
@@ -175,6 +179,10 @@ class TaskOrderSerializer(serializers.ModelSerializer):
             "estimated_hours",
             "budget_cents",
             "pricing_suggestion_cents",
+            "effective_budget_cents",
+            "display_price_label",
+            "price_source_label",
+            "estimated_price_cents",
             "currency",
             "complexity_level",
             "status",
@@ -205,3 +213,14 @@ class TaskOrderSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def get_effective_budget_cents(self, obj):
+        return obj.effective_budget_cents
+
+    def get_display_price_label(self, obj):
+        return obj.display_price_label
+
+    def get_price_source_label(self, obj):
+        return obj.price_source_label
+
+    def get_estimated_price_cents(self, obj):
+        return obj.pricing_suggestion_cents or obj.effective_budget_cents

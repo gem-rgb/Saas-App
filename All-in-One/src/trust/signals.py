@@ -25,6 +25,7 @@ def sync_tasker_profile(sender, instance, created, **kwargs):
     tasker_profile.is_active_tasker = True
     tasker_profile.is_accepting_work = True
     tasker_profile.save()
+    tasker_profile.competency_areas.set(instance.competency_areas.all())
     TaskerApplication.objects.filter(pk=instance.pk).update(tasker_profile=tasker_profile)
 
     groups = instance.applicant.groups

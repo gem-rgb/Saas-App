@@ -15,4 +15,12 @@ urlpatterns = [
     path('v1/trust/application/', views.trust_application_view, name='trust-application'),
     path('v1/operations/overview/', views.operations_overview_view, name='operations-overview'),
     path('v1/notifications/mark-read/', views.notification_mark_read_view, name='notification-mark-read'),
+    
+    # Interactive Interview APIs
+    path('v1/interview/create/', views.create_interview_session_view, name='interview-create'),
+    path('v1/interview/start/', views.start_interview_view, name='interview-start'),
+    path('v1/interview/submit-answer/', views.submit_answer_view, name='interview-submit-answer'),
+    path('v1/interview/next-question/', views.next_question_view, name='interview-next-question'),
+    path('v1/interview/complete/', views.complete_interview_view, name='interview-complete'),
+    path('v1/interview/progress/', views.interview_progress_view, name='interview-progress'),
 ]

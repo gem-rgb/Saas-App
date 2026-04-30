@@ -1,11 +1,11 @@
-<!-- Sidebar -->
 <aside class="fixed left-0 top-0 z-40 h-screen w-64 -translate-x-full border-r border-slate-200 bg-white pt-16 transition-transform md:translate-x-0 dark:border-slate-800 dark:bg-slate-950" aria-label="Sidenav" id="drawer-navigation">
   <div class="h-full overflow-y-auto bg-white px-3 py-5 dark:bg-slate-950">
     <div class="mb-6 rounded-3xl bg-gradient-to-br from-slate-950 to-cyan-950 p-4 text-white shadow-xl">
       <p class="text-xs uppercase tracking-[0.3em] text-cyan-300">Workspace</p>
       <p class="mt-2 text-lg font-semibold">{{ portal_role|default:"student"|title }}</p>
-      <p class="text-sm text-slate-300">{{ portal_label|default:"Marketplace Portal" }}</p>
+      <p class="text-sm text-slate-300">{{ portal_label|default:"Assignment Portal" }}</p>
     </div>
+
     <ul class="space-y-2">
       <li>
         <a href="{% url 'dashboard:portal-home' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
@@ -13,12 +13,47 @@
           Overview
         </a>
       </li>
+
+      {% if portal_role == "student" %}
+      <li>
+        <a href="{% url 'marketplace:task_create' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
+          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-300">+</span>
+          Create assignment
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'profile_detail' request.user.username %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
+          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">◌</span>
+          My profile
+        </a>
+      </li>
+      {% elif portal_role == "tasker" %}
       <li>
         <a href="{% url 'marketplace:board' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
           <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600 dark:bg-cyan-950/40 dark:text-cyan-300">◫</span>
-          Marketplace board
+          My queue
         </a>
       </li>
+      <li>
+        <a href="{% url 'trust:dashboard' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
+          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">✓</span>
+          Trust hub
+        </a>
+      </li>
+      {% elif portal_role == "manager" %}
+      <li>
+        <a href="{% url 'operations:dashboard' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
+          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">⌁</span>
+          Operations
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'trust:dashboard' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
+          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">✓</span>
+          Trust hub
+        </a>
+      </li>
+      {% else %}
       <li>
         <a href="{% url 'trust:dashboard' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
           <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">✓</span>
@@ -31,12 +66,8 @@
           Operations
         </a>
       </li>
-      <li>
-        <a href="{% url 'analytics_dashboard' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
-          <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">AI</span>
-          Analytics
-        </a>
-      </li>
+      {% endif %}
+
       <li>
         <a href="{% url 'user_subscription' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">
           <span class="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">$</span>
@@ -50,6 +81,7 @@
         </a>
       </li>
     </ul>
+
     <ul class="mt-6 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
       <li>
         <a href="{% url 'account_logout' %}" class="flex items-center rounded-2xl p-3 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-900">

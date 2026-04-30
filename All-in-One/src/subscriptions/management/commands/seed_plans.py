@@ -3,15 +3,22 @@ Management command to seed default subscription plans.
 Usage: python manage.py seed_plans
 """
 from django.core.management.base import BaseCommand
+
 from subscriptions.models import Subscription, SubscriptionPrice
 
 
 PLANS = [
     {
         "name": "Essential",
-        "subtitle": "Perfect for students who need help with occasional assignments.",
+        "subtitle": "For students who want clean assignment support and subject-based writer suggestions.",
         "order": 1,
-        "features": "Up to 3 active tasks\nStandard matching\nEmail support\n48-hour turnaround\nBasic analytics",
+        "features": "Up to 3 active assignments\nSubject-based writer recommendations\nAssignment tracking\nEmail support\nBasic subscription access",
+        "feature_codes": [
+            "task_creation",
+            "subject_recommendations",
+            "task_tracking",
+            "basic_support",
+        ],
         "prices": {
             "month": "9.99",
             "year": "99.99",
@@ -19,9 +26,18 @@ PLANS = [
     },
     {
         "name": "Pro",
-        "subtitle": "For busy students who need consistent, reliable academic help.",
+        "subtitle": "For students and taskers who need live routing, chat, and richer workflow controls.",
         "order": 2,
-        "features": "Up to 10 active tasks\nPriority matching\nLive chat support\n24-hour turnaround\nAdvanced analytics\nRevision guarantee",
+        "features": "Up to 10 active assignments\nLive marketplace access\nPriority matching\nIn-app task chat\nRevision requests\nAssignment analytics",
+        "feature_codes": [
+            "task_creation",
+            "subject_recommendations",
+            "live_marketplace",
+            "priority_matching",
+            "task_chat",
+            "revision_requests",
+            "analytics_dashboard",
+        ],
         "prices": {
             "month": "29.99",
             "year": "299.99",
@@ -29,9 +45,19 @@ PLANS = [
     },
     {
         "name": "Expert",
-        "subtitle": "Unlimited access with a dedicated academic manager for top results.",
+        "subtitle": "For teams that need manager oversight, dispute handling, and premium reporting.",
         "order": 3,
-        "features": "Unlimited active tasks\nDedicated manager\nPriority phone support\n12-hour turnaround\nFull analytics dashboard\nUnlimited revisions\nPlagiarism reports",
+        "features": "Unlimited active assignments\nDedicated manager console\nDispute resolution and refunds\nPriority support\nFull analytics dashboard\nPlagiarism and quality reports",
+        "feature_codes": [
+            "task_creation",
+            "subject_recommendations",
+            "live_marketplace",
+            "manager_console",
+            "dispute_resolution",
+            "refund_management",
+            "analytics_dashboard",
+            "quality_reports",
+        ],
         "prices": {
             "month": "79.99",
             "year": "799.99",
@@ -64,10 +90,30 @@ class Command(BaseCommand):
                     "subtitle": plan_data["subtitle"],
                     "order": plan_data["order"],
                     "features": plan_data["features"],
+                    "feature_codes": plan_data["feature_codes"],
                     "active": True,
                     "featured": True,
+                    # Placeholder prevents save() from calling Paystack API when local IDs are enough.
+                    "paystack_id": f"prod_local_{plan_data['name'].lower()}",
                 },
             )
+
+            updated_fields = []
+            if sub.subtitle != plan_data["subtitle"]:
+                sub.subtitle = plan_data["subtitle"]
+                updated_fields.append("subtitle")
+            if sub.order != plan_data["order"]:
+                sub.order = plan_data["order"]
+                updated_fields.append("order")
+            if sub.features != plan_data["features"]:
+                sub.features = plan_data["features"]
+                updated_fields.append("features")
+            if sub.feature_codes != plan_data["feature_codes"]:
+                sub.feature_codes = plan_data["feature_codes"]
+                updated_fields.append("feature_codes")
+            if updated_fields:
+                sub.save(update_fields=updated_fields + ["updated"])
+
             verb = "Created" if created else "Already exists"
             self.stdout.write(f"  {verb}: {sub.name}")
 
@@ -79,6 +125,7 @@ class Command(BaseCommand):
                         "price": price_val,
                         "featured": True,
                         "order": plan_data["order"],
+                        "paystack_id": f"plan_local_{plan_data['name'].lower()}_{interval}",
                     },
                 )
                 sp_verb = "Created" if sp_created else "Already exists"

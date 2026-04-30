@@ -89,6 +89,10 @@ class EscalationCase(models.Model):
     def __str__(self):
         return f"Escalation for {self.task.title}"
 
+    @property
+    def description(self):
+        return self.reason
+
 
 class QualityAudit(models.Model):
     task = models.ForeignKey("marketplace.TaskOrder", on_delete=models.CASCADE, related_name="quality_audits")
@@ -104,6 +108,22 @@ class QualityAudit(models.Model):
 
     def __str__(self):
         return f"Audit {self.task.title}"
+
+    @property
+    def verdict(self):
+        if self.audit_score >= 80:
+            return "pass"
+        if self.audit_score >= 60:
+            return "review"
+        return "fail"
+
+    def get_verdict_display(self):
+        mapping = {
+            "pass": "Pass",
+            "review": "Review",
+            "fail": "Fail",
+        }
+        return mapping.get(self.verdict, "Review")
 
 
 class TaskerPerformanceSnapshot(models.Model):
@@ -130,3 +150,6 @@ class TaskerPerformanceSnapshot(models.Model):
     def __str__(self):
         return f"{self.tasker} snapshot {self.period_start:%Y-%m-%d}"
 
+    @property
+    def tasks_completed(self):
+        return self.task_count

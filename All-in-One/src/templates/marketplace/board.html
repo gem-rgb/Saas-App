@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 
-{% block head_title %}Student Dashboard - Marketplace{% endblock %}
+{% block head_title %}
+{% if portal_role == "student" %}
+My Assignments
+{% elif portal_role == "tasker" %}
+Assignment Queue
+{% elif portal_role == "manager" %}
+Operations Queue
+{% else %}
+Assignment Overview
+{% endif %} - Assignments
+{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 relative">
@@ -11,11 +21,32 @@
         <!-- Header -->
         <div class="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">My Tasks</h1>
-                <p class="text-lg text-slate-600 dark:text-slate-400">Manage your assignments and track progress.</p>
+                <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
+                    {% if portal_role == "student" %}
+                    My Assignments
+                    {% elif portal_role == "tasker" %}
+                    Open Assignments
+                    {% elif portal_role == "manager" %}
+                    Regional Queue
+                    {% else %}
+                    Assignment Overview
+                    {% endif %}
+                </h1>
+                <p class="text-lg text-slate-600 dark:text-slate-400">
+                    {% if portal_role == "student" %}
+                    Manage your assignments and track progress.
+                    {% elif portal_role == "tasker" %}
+                    Browse open assignments, pick work, and deliver verified submissions.
+                    {% elif portal_role == "manager" %}
+                    Monitor escalations, workload, and regional operations.
+                    {% else %}
+                    Monitor platform activity and review operational health.
+                    {% endif %}
+                </p>
             </div>
             <div class="flex items-center gap-3">
-                <!-- AJAX Live Search -->
+                {% if portal_role != "student" %}
+                <!-- Assignment search -->
                 <div class="relative">
                     <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -23,7 +54,7 @@
                     <input
                         type="text"
                         id="marketplace-search"
-                        placeholder="Search tasks…"
+                        placeholder="Search assignments..."
                         class="pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 w-64 transition-all"
                     >
                     <div id="search-spinner" class="absolute right-3 top-1/2 -translate-y-1/2 hidden">
@@ -33,31 +64,111 @@
                         </svg>
                     </div>
                 </div>
+                {% endif %}
+                {% if portal_role == "student" %}
                 <a href="{% url 'marketplace:task_create' %}" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    New Task
+                    New Assignment
                 </a>
+                {% elif portal_role == "tasker" %}
+                <a href="{% url 'trust:dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+                    Trust Hub
+                </a>
+                {% elif portal_role == "manager" %}
+                <a href="{% url 'operations:dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+                    Operations
+                </a>
+                {% else %}
+                <a href="{% url 'operations:dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 dark:bg-slate-100 dark:text-slate-900">
+                    Operations
+                </a>
+                {% endif %}
             </div>
         </div>
+
+        {% if portal_role == "tasker" and tasker_recommendation_rows %}
+        <div class="mb-12 space-y-5">
+            {% for row in tasker_recommendation_rows %}
+            <div class="rounded-3xl bg-white/70 dark:bg-slate-800/70 backdrop-blur border border-slate-200/50 dark:border-slate-700/50 p-5 shadow-sm">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">{{ row.subtitle }}</p>
+                        <h2 class="text-xl font-bold text-slate-900 dark:text-white">{{ row.title }}</h2>
+                    </div>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">Personalized from your tasker profile</span>
+                </div>
+                <div class="mt-4 flex gap-4 overflow-x-auto pb-2">
+                    {% for task in row.tasks %}
+                    <a href="{% url 'marketplace:task_detail' task.pk %}" class="min-w-[17rem] max-w-[17rem] rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-1 hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-700 dark:bg-slate-900/60 dark:hover:bg-cyan-950/20">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white dark:bg-slate-100 dark:text-slate-900">{{ task.recommendation_badge }}</span>
+                            <span class="text-xs font-semibold text-cyan-700 dark:text-cyan-300">{{ task.recommendation_score|floatformat:1 }}%</span>
+                        </div>
+                        <h3 class="mt-3 text-base font-semibold text-slate-900 dark:text-white">{{ task.title }}</h3>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ task.description|truncatechars:85 }}</p>
+                        <div class="mt-4 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span>{{ task.display_price_label }}</span>
+                            <span>{{ task.get_complexity_level_display }}</span>
+                        </div>
+                        {% if task.recommendation_reason %}
+                        <p class="mt-3 text-xs text-slate-600 dark:text-slate-300">{{ task.recommendation_reason }}</p>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <!-- Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             <div class="rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Active Tasks</p>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {% if portal_role == "student" %}
+                    Active Tasks
+                    {% elif portal_role == "tasker" %}
+                    Active Work
+                    {% elif portal_role == "manager" %}
+                    Operational Load
+                    {% else %}
+                    Active Items
+                    {% endif %}
+                </p>
                 <div class="mt-2 flex items-baseline gap-2">
                     <span class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.in_progress_tasks|add:summary.review_tasks }}</span>
                 </div>
             </div>
             <div class="rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Drafts / Unpaid</p>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {% if portal_role == "student" %}
+                    Drafts / Unpaid
+                    {% elif portal_role == "tasker" %}
+                    Open Work
+                    {% elif portal_role == "manager" %}
+                    Open Queue
+                    {% else %}
+                    Open Tasks
+                    {% endif %}
+                </p>
                 <div class="mt-2 flex items-baseline gap-2">
                     <span class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.open_tasks }}</span>
                 </div>
             </div>
             <div class="rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 p-6 shadow-sm hover:shadow-md transition-shadow">
-                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Awaiting Assignment</p>
+                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {% if portal_role == "student" %}
+                    Awaiting Assignment
+                    {% elif portal_role == "tasker" %}
+                    Matched Tasks
+                    {% elif portal_role == "manager" %}
+                    Escalations
+                    {% else %}
+                    Assigned Work
+                    {% endif %}
+                </p>
                 <div class="mt-2 flex items-baseline gap-2">
                     <span class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.assigned_tasks }}</span>
                 </div>
@@ -71,7 +182,17 @@
         </div>
 
         <!-- Task List -->
-        <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Recent Tasks</h2>
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+            {% if portal_role == "student" %}
+            Recent Tasks
+            {% elif portal_role == "tasker" %}
+            Available Work
+            {% elif portal_role == "manager" %}
+            Regional Tasks
+            {% else %}
+            Platform Tasks
+            {% endif %}
+        </h2>
         
         <div id="task-grid">
         {% if tasks %}
@@ -81,17 +202,15 @@
                     <div class="flex items-center justify-between mb-4">
                         <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold 
                             {% if task.status == 'draft' %}bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300
-                            {% elif task.status == 'posted' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+                            {% elif task.status == 'open' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                             {% elif task.status == 'in_progress' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300
                             {% elif task.status == 'completed' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300
                             {% else %}bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300{% endif %}">
                             {{ task.get_status_display }}
                         </span>
-                        {% if task.budget_cents %}
                         <span class="text-sm font-medium text-slate-600 dark:text-slate-400">
-                            {{ task.currency }} {{ task.budget_cents|add:0|floatformat:2 }}
+                            Paying {{ task.display_price_label }}
                         </span>
-                        {% endif %}
                     </div>
                     <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{{ task.title }}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6 flex-grow">{{ task.description }}</p>
@@ -112,11 +231,45 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                 </div>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">No tasks yet</h3>
-                <p class="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">You haven't created any assignments. Post your first task to get matched with an expert.</p>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                    {% if portal_role == "student" %}
+                    No tasks yet
+                    {% elif portal_role == "tasker" %}
+                    No matching work yet
+                    {% elif portal_role == "manager" %}
+                    No tasks in your queue
+                    {% else %}
+                    No platform tasks yet
+                    {% endif %}
+                </h3>
+                <p class="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-6">
+                    {% if portal_role == "student" %}
+                    You haven't created any assignments. Post your first task to get matched with an expert.
+                    {% elif portal_role == "tasker" %}
+                    New work appears here after matching. Check back as students publish fresh tasks.
+                    {% elif portal_role == "manager" %}
+                    Your queue will populate when regional work needs attention.
+                    {% else %}
+                    Platform activity will appear here once work is created and routed.
+                    {% endif %}
+                </p>
+                {% if portal_role == "student" %}
                 <a href="{% url 'marketplace:task_create' %}" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
                     Create your first task
                 </a>
+                {% elif portal_role == "tasker" %}
+                <a href="{% url 'trust:dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors text-white">
+                    Open Trust Hub
+                </a>
+                {% elif portal_role == "manager" %}
+                <a href="{% url 'operations:dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 transition-colors text-white">
+                    Open Operations
+                </a>
+                {% else %}
+                <a href="{% url 'analytics_dashboard' %}" class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700 transition-colors dark:bg-slate-100 dark:text-slate-900">
+                    Assignment insights
+                </a>
+                {% endif %}
             </div>
         {% endif %}
         </div>
@@ -135,7 +288,6 @@
     const STATUS_COLORS = {
         'draft': 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300',
         'open': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-        'posted': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
         'assigned': 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
         'in_progress': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
         'quality_review': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
@@ -146,7 +298,7 @@
     function buildTaskCard(task) {
         const statusClass = STATUS_COLORS[task.status] || STATUS_COLORS['assigned'];
         const deadline = task.deadline ? new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set';
-        const budget = task.budget_cents ? `${task.currency || 'USD'} ${Number(task.budget_cents).toFixed(2)}` : '';
+        const budget = task.display_price_label || (task.budget_cents ? `${task.currency || 'USD'} ${(Number(task.budget_cents) / 100).toFixed(2)}` : '');
 
         return `
             <a href="/marketplace/tasks/${task.id}/" class="group relative flex flex-col rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
@@ -154,7 +306,7 @@
                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass}">
                         ${task.status_display || task.status}
                     </span>
-                    ${budget ? `<span class="text-sm font-medium text-slate-600 dark:text-slate-400">${budget}</span>` : ''}
+                    <span class="text-sm font-medium text-slate-600 dark:text-slate-400">Paying ${budget || 'TBD'}</span>
                 </div>
                 <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">${task.title}</h3>
                 <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6 flex-grow">${task.description || ''}</p>
@@ -174,7 +326,7 @@
             if (tasks.length === 0) {
                 taskGrid.innerHTML = `
                     <div class="rounded-3xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 p-12 text-center shadow-sm">
-                        <p class="text-slate-500 dark:text-slate-400">No tasks matching "<strong>${query}</strong>"</p>
+                        <p class="text-slate-500 dark:text-slate-400">No assignments matching "<strong>${query}</strong>"</p>
                     </div>
                 `;
             } else {

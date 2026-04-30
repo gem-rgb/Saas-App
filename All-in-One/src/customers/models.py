@@ -1,4 +1,4 @@
-import helpers.billing
+import helpers.paystack_billing
 from django.conf import settings
 from django.db import models
 
@@ -11,7 +11,7 @@ User = settings.AUTH_USER_MODEL # "auth.user"
 
 class Customer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    stripe_id = models.CharField(max_length=120, null=True, blank=True)
+    paystack_id = models.CharField(max_length=120, null=True, blank=True)
     init_email = models.EmailField(blank=True, null=True)
     init_email_confirmed = models.BooleanField(default=False)
 
@@ -19,19 +19,16 @@ class Customer(models.Model):
         return f"{self.user.username}"
 
     def save(self, *args, **kwargs):
-        if not self.stripe_id:
+        if not self.paystack_id:
             if self.init_email_confirmed and self.init_email:
                 email = self.init_email
-                if email != "" or email is not None:
-                    stripe_id = helpers.billing.create_customer(email=email,metadata={
+                if email:
+                    paystack_id = helpers.paystack_billing.create_customer(email=email, metadata={
                         "user_id": self.user.id, 
                         "username": self.user.username
-                    }, raw=False)
-                    self.stripe_id = stripe_id
+                    })
+                    self.paystack_id = paystack_id
         super().save(*args, **kwargs)
-        # post -svae will not update
-        # self.stripe_id = "something else"
-        # self.save()
 
 
 def allauth_user_signed_up_handler(request, user, *args, **kwargs):

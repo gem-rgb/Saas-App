@@ -46,13 +46,15 @@
                 </div>
             </div>
             
-            {% if application.status == 'approved' %}
+            {% if application.status == 'approved' and tasker_portal_ready %}
                 <a href="{% url 'marketplace:board' %}" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500">Go to Tasks</a>
+            {% elif application.status == 'approved' %}
+                <a href="{{ tasker_profile_url }}" class="inline-flex items-center justify-center rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-500">Fix Profile</a>
             {% endif %}
         </div>
 
         <!-- Steps Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             
             <!-- Step 1: Basic Application -->
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
@@ -73,7 +75,7 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
                 <div class="flex justify-between items-start mb-4">
                     <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center font-bold">2</div>
-                    {% if identity and identity.status == 'verified' %}
+                    {% if identity and identity.status == 'approved' %}
                         <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></span>
                     {% endif %}
                 </div>
@@ -96,6 +98,21 @@
                 <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">Take a brief 10-minute automated technical interview tailored to your selected competencies.</p>
                 <a href="{% url 'trust:interview_dashboard' %}" class="w-full text-center rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
                     {% if not interviews %}Start Interview{% else %}View Results{% endif %}
+                </a>
+            </div>
+
+            <!-- Step 4: Onboarding & Approval -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 flex items-center justify-center font-bold">4</div>
+                    {% if application.status == 'approved' %}
+                        <span class="inline-flex items-center text-emerald-600 dark:text-emerald-400"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 0118 0z" /></svg></span>
+                    {% endif %}
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Onboarding & Manager Approval</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">Confirm your KYC details, choose the tasks you are proficient in, and submit the profile for manager approval.</p>
+                <a href="{% if application.status == 'approved' and not tasker_portal_ready %}{{ tasker_profile_url }}{% else %}{{ onboarding_url }}{% endif %}" class="w-full text-center rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-semibold py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                    {% if application.status == 'approved' and tasker_portal_ready %}Review{% elif application.status == 'approved' %}Fix Profile{% else %}Continue{% endif %}
                 </a>
             </div>
 

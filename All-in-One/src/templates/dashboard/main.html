@@ -1,303 +1,408 @@
 {% extends "dashboard/base.html" %}
 {% block head_title %}{{ portal_label }} - {{ block.super }}{% endblock %}
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-8">
   <section class="rounded-[2rem] bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 p-8 text-white shadow-2xl">
-    <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-      <div class="max-w-4xl">
-        <div class="flex items-center gap-3">
-          <p class="text-sm uppercase tracking-[0.35em] text-cyan-300">Academic Task Marketplace</p>
-          <span id="live-indicator" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/30" title="Auto-refreshing every 30s">
-            <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-            Live
-          </span>
-        </div>
+    <div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-3xl">
+        <p class="text-sm uppercase tracking-[0.35em] text-cyan-300">Assignment workspace</p>
         <h1 class="mt-3 text-3xl font-semibold lg:text-5xl">{{ portal_label }}</h1>
-        <p class="mt-4 max-w-3xl text-slate-300">{{ portal_tagline }}</p>
+        <p class="mt-4 max-w-2xl text-slate-300">{{ portal_tagline }}</p>
         <div class="mt-6 flex flex-wrap gap-3 text-sm">
           <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Role: {{ portal_role|title }}</span>
           <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Plan: {{ sub_info.plan_name }}</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Health: {{ analytics.health_score }}/100</span>
-          {% if tasker_gate %}
-          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Gate: {{ tasker_gate.application_status|title }}</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">{% if sub_info.is_active %}Active access{% else %}Locked access{% endif %}</span>
+          {% if portal_role == "student" %}
+          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Subject: {{ student_subject_focus }}</span>
+          {% elif portal_role == "tasker" %}
+          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Trust: {{ tasker_summary.trust_score|default:0|floatformat:0 }}/100</span>
+          {% elif portal_role == "manager" %}
+          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Open disputes: {{ manager_summary.open_escalations|default:0 }}</span>
+          {% else %}
+          <span class="rounded-full border border-white/10 bg-white/5 px-4 py-2">Pending reviews: {{ admin_applications|length }}</span>
           {% endif %}
         </div>
       </div>
       <div class="grid grid-cols-2 gap-3 text-sm">
         <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-slate-300">Usage forecast</p>
-          <p class="mt-1 text-3xl font-bold transition-all duration-300" id="live-usage-forecast">{{ analytics.usage_forecast|default:0 }}</p>
+          <p class="text-slate-300">Days remaining</p>
+          <p class="mt-1 text-3xl font-bold">{{ sub_info.days_remaining }}</p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <p class="text-slate-300">Churn risk</p>
-          <p class="mt-1 text-3xl font-bold transition-all duration-300" id="live-churn-risk">{{ analytics.churn_probability|default:0 }}%</p>
+          <p class="text-slate-300">Notifications</p>
+          <p class="mt-1 text-3xl font-bold">{{ notifications|length }}</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-slate-300">Access level</p>
+          <p class="mt-1 text-3xl font-bold">{% if sub_info.is_active %}Open{% else %}Locked{% endif %}</p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-slate-300">Focus</p>
+          <p class="mt-1 text-xl font-semibold">
+            {% if portal_role == "student" %}{{ student_subject_focus }}{% elif portal_role == "tasker" %}Queue{% elif portal_role == "manager" %}Moderation{% else %}Oversight{% endif %}
+          </p>
         </div>
       </div>
     </div>
   </section>
 
   <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    {% if portal_role == "student" %}
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p class="text-sm text-slate-500 dark:text-slate-400">Total Tasks</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ summary.total_tasks|default:0 }}</p>
-      <p class="text-sm text-slate-500 dark:text-slate-400">across all statuses</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Total assignments</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ student_summary.total_tasks|default:0 }}</p>
     </div>
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p class="text-sm text-slate-500 dark:text-slate-400">Activity Score</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white transition-all duration-300" id="live-health-score">{{ analytics.health_score }}/100</p>
-      <p class="text-sm text-slate-500 dark:text-slate-400" id="live-health-color">{{ analytics.health_color|title }} trajectory</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Active tasks</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ student_summary.active_tasks|default:0 }}</p>
     </div>
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p class="text-sm text-slate-500 dark:text-slate-400">Notifications</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ notifications|length }}</p>
-      <p class="text-sm text-slate-500 dark:text-slate-400">Unread queue items</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Completed</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ student_summary.completed_tasks|default:0 }}</p>
     </div>
     <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p class="text-sm text-slate-500 dark:text-slate-400">Subscription</p>
-      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ sub_info.days_remaining }}</p>
-      <p class="text-sm text-slate-500 dark:text-slate-400">days remaining</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400">Recommended writers</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ student_recommended_taskers|length }}</p>
     </div>
+    {% elif portal_role == "tasker" %}
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Assigned tasks</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ tasker_tasks|length }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Trust score</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ tasker_summary.trust_score|default:0|floatformat:0 }}/100</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Quality score</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ tasker_summary.quality_score|default:0|floatformat:0 }}/100</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Workload hours</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ tasker_summary.current_workload_hours|default:0|floatformat:0 }}</p>
+    </div>
+    {% elif portal_role == "manager" %}
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Regions</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ manager_summary.regions|default:0 }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Open disputes</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ manager_summary.open_escalations|default:0 }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Flagged taskers</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ manager_summary.flagged_taskers|default:0 }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Escalations</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ manager_summary.escalations|default:0 }}</p>
+    </div>
+    {% else %}
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Pending applications</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ admin_applications|length }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Open tasks</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ admin_open_count|default:0 }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Completed</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ admin_completion_count|default:0 }}</p>
+    </div>
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Low-accuracy taskers</p>
+      <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ admin_low_accuracy_taskers|length }}</p>
+    </div>
+    {% endif %}
   </section>
 
-  <section class="grid gap-6 xl:grid-cols-3">
-    <div class="xl:col-span-2 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm uppercase tracking-[0.25em] text-cyan-600 dark:text-cyan-400">Live Queue</p>
-          <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Current workflow</h2>
+  <section class="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+    <div class="space-y-6">
+      {% if portal_role == "student" %}
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Recommended writers</p>
+            <h2 class="text-2xl font-semibold text-slate-900 dark:text-white">Best fit for {{ student_subject_focus }}</h2>
+          </div>
+          <a href="{% url 'pricing' %}" class="text-sm font-medium text-cyan-600 dark:text-cyan-300">See plans</a>
         </div>
-        <a href="{% url 'marketplace:board' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Open marketplace</a>
+        <div class="mt-6 grid gap-4 md:grid-cols-2">
+          {% for writer in student_recommended_taskers %}
+          <a href="{% url 'profile_detail' writer.tasker.user.username %}" class="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:bg-cyan-950/20">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-semibold text-slate-900 dark:text-white">{{ writer.tasker.user.get_full_name|default:writer.tasker.user.username }}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">{{ writer.region_name }}</p>
+              </div>
+              <span class="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white dark:bg-slate-100 dark:text-slate-900">{{ writer.score|floatformat:1 }}%</span>
+            </div>
+            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ writer.reason }}</p>
+            {% if writer.specialties %}
+            <div class="mt-4 flex flex-wrap gap-2">
+              {% for specialty in writer.specialties %}
+              <span class="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-300">{{ specialty }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <div class="mt-4 grid grid-cols-3 gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <span>Trust {{ writer.trust_score|floatformat:0 }}</span>
+              <span>Quality {{ writer.quality_score|floatformat:0 }}</span>
+              <span>Load {{ writer.availability_hours|floatformat:0 }}h</span>
+            </div>
+          </a>
+          {% empty %}
+          <div class="rounded-3xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Create an assignment with a subject first and we will rank the best writers here.
+          </div>
+          {% endfor %}
+        </div>
       </div>
 
-      {% if portal_role == "student" %}
-      <div class="mt-6 grid gap-4">
-        {% for task in student_tasks %}
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <div class="flex items-center justify-between">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Your assignments</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Recent work</h2>
+          </div>
+          <a href="{% url 'marketplace:task_create' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Create assignment</a>
+        </div>
+        <div class="mt-4 space-y-3">
+          {% for task in student_tasks %}
+          <a href="{% url 'marketplace:task_detail' task.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
             <div>
               <p class="font-medium text-slate-900 dark:text-white">{{ task.title }}</p>
-              <p class="text-sm text-slate-500">{{ task.get_status_display }} | {{ task.get_complexity_level_display }}</p>
+              <p class="text-sm text-slate-500">{{ task.get_status_display }} | {{ task.subject }}</p>
             </div>
-            <span class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">{{ task.subject }}</span>
-          </div>
+            <span class="text-sm text-slate-500">{{ task.display_price_label }}</span>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No assignments yet. Create one to see writer recommendations.</p>
+          {% endfor %}
         </div>
-        {% empty %}
-        <p class="text-sm text-slate-500">No tasks yet. Create your first task in the marketplace.</p>
-        {% endfor %}
       </div>
       {% elif portal_role == "tasker" %}
-      <div class="mt-6 grid gap-4">
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <p class="text-sm text-slate-500">Trust gate</p>
-          <p class="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{{ tasker_gate.application_status|title }}</p>
-          <p class="text-sm text-slate-500">Ready: {{ tasker_gate.is_ready|yesno:"Yes,No" }}</p>
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Your queue</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Personalized work picks</h2>
+          </div>
+          <a href="{% url 'trust:dashboard' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Trust hub</a>
         </div>
-        {% for task in tasker_tasks %}
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <div class="flex items-center justify-between">
+        <div class="mt-4 space-y-4">
+          {% for row in tasker_recommendation_rows %}
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/40">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">{{ row.subtitle }}</p>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{{ row.title }}</h3>
+              </div>
+              <span class="text-xs text-slate-500 dark:text-slate-400">Personalized</span>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              {% for task in row.tasks %}
+              <a href="{% url 'marketplace:task_detail' task.pk %}" class="rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-cyan-950/20">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white dark:bg-slate-100 dark:text-slate-900">{{ task.recommendation_badge }}</span>
+                  <span class="text-xs font-semibold text-cyan-700 dark:text-cyan-300">{{ task.recommendation_score|floatformat:1 }}%</span>
+                </div>
+                <h4 class="mt-3 text-base font-semibold text-slate-900 dark:text-white">{{ task.title }}</h4>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ task.description|truncatechars:90 }}</p>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No matching work yet. The queue will populate when assignments are published.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Assigned work</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Active tasks</h2>
+          </div>
+          {% if tasker_portal_ready %}
+          <a href="{% url 'marketplace:board' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Open queue</a>
+          {% endif %}
+        </div>
+        <div class="mt-4 space-y-3">
+          {% for task in tasker_tasks %}
+          <a href="{% url 'marketplace:task_detail' task.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
             <div>
               <p class="font-medium text-slate-900 dark:text-white">{{ task.title }}</p>
               <p class="text-sm text-slate-500">{{ task.get_status_display }} | Due {% if task.deadline %}{{ task.deadline|date:"M d, H:i" }}{% else %}n/a{% endif %}</p>
             </div>
-            <a href="{% url 'marketplace:task_detail' task.pk %}" class="text-sm font-medium text-cyan-600">Open</a>
-          </div>
+            <span class="text-sm text-slate-500">{{ task.display_price_label }}</span>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No assigned work yet.</p>
+          {% endfor %}
         </div>
-        {% empty %}
-        <p class="text-sm text-slate-500">No assigned tasks yet. We’ll route work once the trust gate opens.</p>
-        {% endfor %}
       </div>
       {% elif portal_role == "manager" %}
-      <div class="mt-6 grid gap-4">
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <p class="text-sm text-slate-500">Regions</p>
-          <p class="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{{ manager_regions|length }}</p>
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Manager queue</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Open escalations</h2>
+          </div>
+          <a href="{% url 'operations:dashboard' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Open operations</a>
         </div>
-        {% for escalation in manager_escalations %}
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <div class="flex items-center justify-between">
+        <div class="mt-4 space-y-3">
+          {% for escalation in manager_escalations %}
+          <a href="{% url 'marketplace:task_detail' escalation.task.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
             <div>
               <p class="font-medium text-slate-900 dark:text-white">{{ escalation.task.title }}</p>
-              <p class="text-sm text-slate-500">{{ escalation.reason|truncatechars:120 }}</p>
+              <p class="text-sm text-slate-500">{{ escalation.reason|truncatechars:110 }}</p>
             </div>
             <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{{ escalation.get_status_display }}</span>
-          </div>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No open escalations in your queue.</p>
+          {% endfor %}
         </div>
-        {% empty %}
-        <p class="text-sm text-slate-500">No escalations in your regional queue.</p>
-        {% endfor %}
+      </div>
+
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Low accuracy</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Taskers to review</h2>
+          </div>
+          <a href="{% url 'operations:dashboard' %}" class="text-sm font-medium text-cyan-600 dark:text-cyan-300">Moderate</a>
+        </div>
+        <div class="mt-4 space-y-3">
+          {% for tasker in manager_low_accuracy_taskers %}
+          <a href="{% url 'operations:tasker_performance' tasker.id %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
+            <div>
+              <p class="font-medium text-slate-900 dark:text-white">{{ tasker.user.username }}</p>
+              <p class="text-sm text-slate-500">Accuracy {{ tasker.avg_accuracy|floatformat:1 }} | Quality {{ tasker.avg_overall|floatformat:1 }}</p>
+            </div>
+            <span class="text-sm text-slate-500">{{ tasker.rating_count }} ratings</span>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No taskers are currently below the review threshold.</p>
+          {% endfor %}
+        </div>
       </div>
       {% else %}
-      <div class="mt-6 grid gap-4">
-        {% for application in admin_applications %}
-        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <div class="flex items-center justify-between">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Admin queue</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Pending tasker approvals</h2>
+          </div>
+          <a href="{% url 'trust:dashboard' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Trust hub</a>
+        </div>
+        <div class="mt-4 space-y-3">
+          {% for application in admin_applications %}
+          <a href="{% url 'trust:application_review' application.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
             <div>
               <p class="font-medium text-slate-900 dark:text-white">{{ application.applicant.username }}</p>
               <p class="text-sm text-slate-500">{{ application.get_status_display }} | Trust {{ application.trust_score|floatformat:1 }}</p>
             </div>
-            <a href="{% url 'trust:application_review' application.pk %}" class="text-sm font-medium text-cyan-600">Review</a>
-          </div>
+            <span class="text-sm text-slate-500">Review</span>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No pending applications right now.</p>
+          {% endfor %}
         </div>
-        {% empty %}
-        <p class="text-sm text-slate-500">No pending applications right now.</p>
-        {% endfor %}
+      </div>
+
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Platform work</p>
+            <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Open assignments</h2>
+          </div>
+          <a href="{% url 'marketplace:board' %}" class="rounded-full border border-cyan-600 px-4 py-2 text-sm font-medium text-cyan-700 dark:text-cyan-300">Task board</a>
+        </div>
+        <div class="mt-4 space-y-3">
+          {% for task in admin_open_tasks %}
+          <a href="{% url 'marketplace:task_detail' task.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
+            <div>
+              <p class="font-medium text-slate-900 dark:text-white">{{ task.title }}</p>
+              <p class="text-sm text-slate-500">{{ task.get_status_display }} | {{ task.subject }}</p>
+            </div>
+            <span class="text-sm text-slate-500">{{ task.display_price_label }}</span>
+          </a>
+          {% empty %}
+          <p class="text-sm text-slate-500 dark:text-slate-400">No open assignments right now.</p>
+          {% endfor %}
+        </div>
       </div>
       {% endif %}
     </div>
 
-    <div class="space-y-6">
-      <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <aside class="space-y-6">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">AI insights</h2>
-          <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">{{ analytics.churn_risk_level|title }} risk</span>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Subscription</h2>
+          {% if sub_info.is_active %}
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Active</span>
+          {% else %}
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Inactive</span>
+          {% endif %}
         </div>
-        <div class="mt-4 space-y-3">
-          {% for rec in analytics.recommendations %}
-          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-            <p class="text-sm font-medium text-slate-900 dark:text-white">{{ rec.title }}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">{{ rec.text }}</p>
+        <div class="mt-4 space-y-3 text-sm">
+          <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+            <span class="text-slate-500 dark:text-slate-400">Plan</span>
+            <span class="font-medium text-slate-900 dark:text-white">{{ sub_info.plan_name }}</span>
           </div>
-          {% empty %}
-          <p class="text-sm text-slate-500">No recommendations yet.</p>
-          {% endfor %}
+          <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+            <span class="text-slate-500 dark:text-slate-400">Status</span>
+            <span class="font-medium text-slate-900 dark:text-white">{{ sub_info.status|title }}</span>
+          </div>
+          <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+            <span class="text-slate-500 dark:text-slate-400">Features</span>
+            <span class="font-medium text-slate-900 dark:text-white">{{ sub_info.feature_codes|length }}</span>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-3">
+          <a href="{% url 'pricing' %}" class="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-center text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900">Plans</a>
+          <a href="{% url 'user_subscription' %}" class="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-center text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200">Billing</a>
         </div>
       </div>
 
-      <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Activity</h2>
-        <div class="mt-4 flex items-end gap-2 h-36">
-          {% for day in usage_chart %}
-          <div class="flex-1 text-center">
-            <div class="mx-auto w-full max-w-[28px] rounded-t-xl bg-gradient-to-t from-cyan-600 to-cyan-400" style="height: {{ day.height }}%" title="{{ day.count }} actions"></div>
-            <p class="mt-2 text-xs text-slate-500">{{ day.day }}</p>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Notifications</h2>
-        <div class="mt-4 space-y-3" id="notification-list">
+        <div class="mt-4 space-y-3">
           {% for note in notifications %}
-          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800 transition-all duration-300" data-notif-id="{{ note.pk }}" id="notif-card-{{ note.pk }}">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm font-medium text-slate-900 dark:text-white">{{ note.title }}</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">{{ note.body }}</p>
-              </div>
-              <button
-                class="notif-dismiss-btn ml-3 shrink-0 rounded-full p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
-                data-notif-id="{{ note.pk }}"
-                title="Dismiss"
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-              </button>
-            </div>
+          <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+            <p class="text-sm font-medium text-slate-900 dark:text-white">{{ note.title }}</p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ note.body }}</p>
           </div>
           {% empty %}
-          <p class="text-sm text-slate-500">No notifications waiting.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">No notifications waiting.</p>
           {% endfor %}
         </div>
       </div>
-    </div>
-  </section>
 
-  <section class="grid gap-6 lg:grid-cols-2">
-    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Recent activity</h2>
-      <div class="mt-4 space-y-3">
-        {% for activity in recent_activities %}
-        <div class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-          <div>
-            <p class="font-medium text-slate-900 dark:text-white">{{ activity.get_action_display }}</p>
-            <p class="text-xs text-slate-500">{{ activity.path|default:"workspace" }}</p>
-          </div>
-          <span class="text-xs text-slate-500">{{ activity.timestamp|timesince }} ago</span>
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quick actions</h2>
+        <div class="mt-4 grid gap-3">
+          {% if portal_role == "student" %}
+          <a href="{% url 'marketplace:task_create' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Create assignment</a>
+          <a href="{% url 'profile_edit' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Edit profile</a>
+          {% elif portal_role == "tasker" %}
+          <a href="{% url 'marketplace:board' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Open queue</a>
+          <a href="{% url 'trust:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Trust hub</a>
+          {% elif portal_role == "manager" %}
+          <a href="{% url 'operations:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Operations</a>
+          <a href="{% url 'trust:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Trust hub</a>
+          {% else %}
+          <a href="{% url 'trust:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Trust hub</a>
+          <a href="{% url 'operations:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Operations</a>
+          {% endif %}
         </div>
-        {% empty %}
-        <p class="text-sm text-slate-500">No recent activity.</p>
-        {% endfor %}
       </div>
-    </div>
-
-    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quick actions</h2>
-      <div class="mt-4 grid gap-3 sm:grid-cols-2">
-        <a href="{% url 'marketplace:board' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Marketplace board</a>
-        <a href="{% url 'marketplace:task_create' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Create task</a>
-        <a href="{% url 'trust:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Trust hub</a>
-        <a href="{% url 'operations:dashboard' %}" class="rounded-2xl border border-slate-200 p-4 text-slate-900 transition hover:border-cyan-500 hover:bg-cyan-50 dark:border-slate-800 dark:text-white dark:hover:bg-cyan-950/30">Operations</a>
-      </div>
-    </div>
+    </aside>
   </section>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-(function() {
-    const REFRESH_INTERVAL = 30000; // 30 seconds
-
-    function pulseElement(el) {
-        el.classList.add('scale-110');
-        setTimeout(() => el.classList.remove('scale-110'), 400);
-    }
-
-    function updateText(id, newValue) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (el.textContent.trim() !== String(newValue).trim()) {
-            el.textContent = newValue;
-            pulseElement(el);
-        }
-    }
-
-    async function refreshDashboard() {
-        try {
-            const data = await SaaSAjax.get('/api/v1/analytics/health-score/');
-            if (data.health_score !== undefined) {
-                updateText('live-health-score', data.health_score + '/100');
-            }
-            if (data.health_color) {
-                updateText('live-health-color', data.health_color.charAt(0).toUpperCase() + data.health_color.slice(1) + ' trajectory');
-            }
-            if (data.churn_probability !== undefined) {
-                updateText('live-churn-risk', data.churn_probability + '%');
-            }
-        } catch (e) {
-            // Silently fail — user might be logged out or network dropped
-        }
-
-        try {
-            const usage = await SaaSAjax.get('/api/v1/analytics/usage/');
-            if (usage.usage_forecast !== undefined) {
-                updateText('live-usage-forecast', usage.usage_forecast);
-            }
-        } catch (e) {}
-    }
-
-    // Start polling
-    setInterval(refreshDashboard, REFRESH_INTERVAL);
-
-    /* ── Notification dismiss via AJAX ─────────────────────────── */
-    document.querySelectorAll('.notif-dismiss-btn').forEach(function(btn) {
-        btn.addEventListener('click', async function() {
-            const notifId = this.dataset.notifId;
-            const card = document.getElementById('notif-card-' + notifId);
-            if (!card) return;
-
-            try {
-                const result = await SaaSAjax.post('/api/v1/notifications/mark-read/', { id: notifId });
-                if (result.status === 'ok') {
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateX(100%)';
-                    setTimeout(() => card.remove(), 300);
-                }
-            } catch (e) {
-                SaaSAjax.showToast('Could not dismiss notification.', 'error');
-            }
-        });
-    });
-})();
-</script>
-{% endblock extra_js %}
+{% endblock content %}

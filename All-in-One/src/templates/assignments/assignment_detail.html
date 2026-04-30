@@ -7,7 +7,6 @@
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      <!-- Header -->
       <div class="px-6 py-8 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-start justify-between">
           <div>
@@ -27,18 +26,19 @@
                 Edit
               </a>
               {% if assignment.status == 'draft' %}
-                <a href="{% url 'assignments:publish_assignment' assignment.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
-                  Publish
-                </a>
+                <form action="{% url 'assignments:publish_assignment' assignment.pk %}" method="post">
+                  {% csrf_token %}
+                  <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                    Publish
+                  </button>
+                </form>
               {% endif %}
             </div>
           {% endif %}
         </div>
       </div>
 
-      <!-- Main Content -->
       <div class="px-6 py-8">
-        <!-- Description -->
         <div class="mb-8">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Description</h2>
           <div class="prose dark:prose-invert max-w-none">
@@ -46,7 +46,6 @@
           </div>
         </div>
 
-        <!-- Details Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Required Skills</p>
@@ -69,12 +68,11 @@
           {% if assignment.budget_cents %}
             <div>
               <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Budget</p>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">${{ assignment.budget_cents|add:0|divisibleby:100|yesno:"yes,no" }} {{ assignment.budget_cents|add:0|stringformat:"0.2f"|slice:":-5" }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ assignment.budget_cents }} cents</p>
             </div>
           {% endif %}
         </div>
 
-        <!-- Assignment Status -->
         {% if assignment.assigned_to %}
           <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
             <h3 class="font-semibold text-blue-900 dark:text-blue-100 mb-2">Assigned To</h3>
@@ -87,7 +85,6 @@
           </div>
         {% endif %}
 
-        <!-- Files Section -->
         {% if files or is_creator %}
           <div class="mb-8">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Files</h2>
@@ -101,7 +98,7 @@
                       </svg>
                       <div>
                         <p class="font-medium text-gray-900 dark:text-white">{{ file.file.name|slice:"17:" }}</p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">{{ file.file_size_mb|floatformat:2 }} MB • {{ file.uploaded_at|date:"M d, Y" }}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">{{ file.file_size_mb|floatformat:2 }} MB - {{ file.uploaded_at|date:"M d, Y" }}</p>
                       </div>
                     </div>
                     <a href="{{ file.file.url }}" class="text-blue-600 dark:text-blue-400 hover:underline text-sm">Download</a>
@@ -120,7 +117,6 @@
           </div>
         {% endif %}
 
-        <!-- Submissions Section -->
         {% if submissions %}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Submissions</h2>
@@ -139,8 +135,67 @@
                   <div class="prose dark:prose-invert max-w-none mb-3">
                     {{ submission.submission_text|linebreaks }}
                   </div>
+                  {% with verification=submission.ai_verification %}
+                  {% if verification %}
+                    <div class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                      <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">AI verification</p>
+                          <p class="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                            {% if verification.grading_style %}{{ verification.grading_style|capfirst }} scoring{% endif %}
+                            {% if verification.minimum_score %} - Minimum {{ verification.minimum_score|floatformat:0 }}/100{% endif %}
+                          </p>
+                        </div>
+                        <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                          {{ verification.overall_score|default:0|floatformat:1 }}/100
+                        </span>
+                      </div>
+                      {% if verification.summary %}
+                        <p class="mt-2 text-sm text-emerald-950 dark:text-emerald-50">{{ verification.summary }}</p>
+                      {% endif %}
+                      {% if verification.criteria %}
+                        <div class="mt-4 space-y-3">
+                          {% for criterion in verification.criteria %}
+                            <div class="rounded-lg border border-emerald-100 bg-white/80 p-3 dark:border-emerald-900/30 dark:bg-slate-900/40">
+                              <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ criterion.name|default:"Criterion" }}</h4>
+                                  {% if criterion.weight %}
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ criterion.weight|floatformat:0 }} pts weight</p>
+                                  {% endif %}
+                                </div>
+                                <span class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                  {{ criterion.score|default:0|floatformat:1 }}/100
+                                </span>
+                              </div>
+                              {% if criterion.feedback %}
+                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ criterion.feedback }}</p>
+                              {% endif %}
+                              <div class="mt-3 flex flex-wrap gap-2">
+                                {% if criterion.matched_terms %}
+                                  {% for term in criterion.matched_terms %}
+                                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                      Matched: {{ term }}
+                                    </span>
+                                  {% endfor %}
+                                {% endif %}
+                                {% if criterion.missing_terms %}
+                                  {% for term in criterion.missing_terms %}
+                                    <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+                                      Missing: {{ term }}
+                                    </span>
+                                  {% endfor %}
+                                {% endif %}
+                              </div>
+                            </div>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% endwith %}
                   {% if submission.rating %}
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Rating: ⭐ {{ submission.rating }}/5</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Rating: {{ submission.rating }}/5</p>
                   {% endif %}
                   {% if is_creator and submission.status == 'pending' %}
                     <a href="{% url 'assignments:review_submission' submission.pk %}" class="text-blue-600 dark:text-blue-400 hover:underline text-sm">Review Submission</a>

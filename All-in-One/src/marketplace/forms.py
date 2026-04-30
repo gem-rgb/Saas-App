@@ -10,9 +10,24 @@ from marketplace.models import (
 
 
 BASE_INPUT = "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+RUBRIC_INPUT = (
+    "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-mono text-sm text-slate-900 shadow-sm "
+    "focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+)
 
 
 class TaskOrderForm(forms.ModelForm):
+    verification_rubric = forms.JSONField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": RUBRIC_INPUT,
+                "rows": 8,
+                "placeholder": '{\n  "title": "Short Answer Rubric",\n  "answer_type": "short_text",\n  "grading_style": "partial",\n  "minimum_score": 70,\n  "criteria": [\n    {\n      "name": "Definition accuracy",\n      "weight": 4,\n      "required_terms": ["sunlight", "energy conversion"]\n    }\n  ]\n}',
+            }
+        ),
+    )
+
     class Meta:
         model = TaskOrder
         fields = [
@@ -41,6 +56,29 @@ class TaskOrderForm(forms.ModelForm):
             "complexity_level": forms.Select(attrs={"class": BASE_INPUT}),
             "region_preference": forms.Select(attrs={"class": BASE_INPUT}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        metadata = self.instance.metadata if isinstance(getattr(self.instance, "metadata", None), dict) else {}
+        if metadata.get("verification_rubric"):
+            self.fields["verification_rubric"].initial = metadata["verification_rubric"]
+
+    def clean_verification_rubric(self):
+        rubric = self.cleaned_data.get("verification_rubric")
+        if rubric in (None, ""):
+            return {}
+        if not isinstance(rubric, dict):
+            raise forms.ValidationError("Rubric must be a JSON object.")
+        return rubric
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        metadata = instance.metadata if isinstance(instance.metadata, dict) else {}
+        metadata["verification_rubric"] = self.cleaned_data.get("verification_rubric") or {}
+        instance.metadata = metadata
+        if commit:
+            instance.save()
+        return instance
 
 
 class TaskAttachmentForm(forms.ModelForm):
@@ -87,3 +125,26 @@ class TaskRatingForm(forms.ModelForm):
             "comments": forms.Textarea(attrs={"class": BASE_INPUT, "rows": 4, "placeholder": "Share your feedback"}),
         }
 
+
+TASK_MESSAGE_AUDIENCE_CHOICES = (
+    ("shared", "Shared with student"),
+    ("team", "Task team only"),
+    ("internal", "Managers only"),
+)
+
+
+class TaskConversationMessageForm(forms.Form):
+    message = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": BASE_INPUT,
+                "rows": 4,
+                "placeholder": "Send an update, question, or instruction...",
+            }
+        )
+    )
+    audience = forms.ChoiceField(
+        choices=TASK_MESSAGE_AUDIENCE_CHOICES,
+        initial="shared",
+        widget=forms.Select(attrs={"class": BASE_INPUT}),
+    )

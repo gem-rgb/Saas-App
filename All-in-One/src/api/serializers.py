@@ -24,18 +24,23 @@ class UserSerializer(serializers.ModelSerializer):
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     features = serializers.SerializerMethodField()
+    feature_codes = serializers.SerializerMethodField()
 
     class Meta:
         model = Subscription
-        fields = ['id', 'name', 'subtitle', 'features']
+        fields = ['id', 'name', 'subtitle', 'features', 'feature_codes']
 
     def get_features(self, obj):
         return obj.get_features_as_list()
+
+    def get_feature_codes(self, obj):
+        return obj.get_feature_codes()
 
 
 class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan_name = serializers.ReadOnlyField()
     is_active_status = serializers.ReadOnlyField()
+    feature_codes = serializers.SerializerMethodField()
 
     class Meta:
         model = UserSubscription
@@ -43,17 +48,20 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
             'plan_name', 'status', 'is_active_status',
             'current_period_start', 'current_period_end',
             'cancel_at_period_end', 'original_period_start',
+            'feature_codes',
         ]
+
+    def get_feature_codes(self, obj):
+        return obj.serialize().get("feature_codes", [])
 
 
 class MLPredictionSerializer(serializers.ModelSerializer):
-    churn_risk_level = serializers.ReadOnlyField()
     health_color = serializers.ReadOnlyField()
 
     class Meta:
         model = MLPrediction
         fields = [
-            'health_score', 'churn_probability', 'churn_risk_level',
+            'health_score',
             'engagement_level', 'predicted_usage_next_month',
             'recommendations', 'health_color', 'last_calculated',
         ]

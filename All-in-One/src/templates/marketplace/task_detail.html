@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block head_title %}{{ task.title }} - Marketplace{% endblock %}
+{% block head_title %}{{ task.title }} - Assignment{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-10">
@@ -12,7 +12,7 @@
                 <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Back to Dashboard
+                Back to Assignments
             </a>
             
             <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -21,34 +21,41 @@
                         <h1 class="text-3xl font-bold text-slate-900 dark:text-white">{{ task.title }}</h1>
                         <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold 
                             {% if task.status == 'draft' %}bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-300
-                            {% elif task.status == 'posted' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
+                            {% elif task.status == 'open' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
                             {% elif task.status == 'in_progress' %}bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300
                             {% elif task.status == 'completed' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300
                             {% else %}bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300{% endif %}">
                             {{ task.get_status_display }}
                         </span>
                     </div>
-                    <p class="text-slate-500 dark:text-slate-400">Order #{{ task.id }} • Created on {{ task.created_at|date:"M d, Y" }}</p>
+                    <p class="text-slate-500 dark:text-slate-400">Assignment #{{ task.id }} - Created on {{ task.created_at|date:"M d, Y" }}</p>
                 </div>
                 
                 <div class="flex-shrink-0 flex gap-3">
-                    {% if task.status == 'draft' %}
-                        <form action="{% url 'marketplace:task_create' %}" method="get">
+                    {% if task.status == 'draft' and user == task.student %}
+                        <form action="{% url 'marketplace:task_publish' task.pk %}" method="post">
+                            {% csrf_token %}
                             <button class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-500 transition-colors">
-                                Pay to Publish
+                                Publish Assignment
                             </button>
                         </form>
-                    {% elif task.status == 'posted' and user == task.student %}
+                    {% elif task.status == 'open' %}
+                        {% if portal_role == 'manager' or portal_role == 'admin' %}
                         <form action="{% url 'marketplace:task_assign' task.pk %}" method="post">
                             {% csrf_token %}
                             <button class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-500 transition-colors">
-                                Auto-Assign with AI
+                                Auto-Assign Tasker
                             </button>
                         </form>
-                    {% elif task.status == 'in_progress' and user.tasker_profile and task.assigned_tasker == user.tasker_profile %}
-                        <a href="{% url 'marketplace:task_submit' task.pk %}" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-500 transition-colors">
-                            Submit Deliverables
-                        </a>
+                        {% endif %}
+                    {% elif task.status == 'in_progress' %}
+                        {% if portal_role == 'tasker' or portal_role == 'admin' %}
+                            {% if user.tasker_profile and task.assigned_tasker == user.tasker_profile %}
+                            <a href="{% url 'marketplace:task_submit' task.pk %}" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-500 transition-colors">
+                                Submit Work
+                            </a>
+                            {% endif %}
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -60,7 +67,7 @@
                 
                 <!-- Timeline/Progress Tracker -->
                 <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Order Timeline</h2>
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-6">Assignment Timeline</h2>
                     <div class="relative">
                         <!-- Progress bar background -->
                         <div class="absolute inset-0 top-1/2 hidden md:block h-1 bg-slate-100 dark:bg-slate-700 -mt-0.5 z-0 rounded-full"></div>
@@ -76,13 +83,13 @@
                                 </div>
                             </div>
                             
-                            <!-- Paid & Published -->
+                            <!-- Paid & Open -->
                             <div class="flex md:flex-col items-center gap-4 md:gap-2 text-center">
                                 <div class="w-10 h-10 rounded-full {% if task.status != 'draft' %}bg-indigo-600 text-white{% else %}bg-slate-200 text-slate-400 dark:bg-slate-700{% endif %} flex items-center justify-center font-bold shadow-sm">
                                     2
                                 </div>
                                 <div class="text-left md:text-center">
-                                    <div class="text-sm font-bold {% if task.status != 'draft' %}text-slate-900 dark:text-white{% else %}text-slate-500{% endif %}">Paid & Posted</div>
+                                    <div class="text-sm font-bold {% if task.status != 'draft' %}text-slate-900 dark:text-white{% else %}text-slate-500{% endif %}">Paid & Open</div>
                                 </div>
                             </div>
                             
@@ -148,15 +155,232 @@
                             </div>
                             <p class="text-sm text-slate-700 dark:text-slate-300 mb-4 whitespace-pre-wrap">{{ sub.submission_text }}</p>
                             
+                            {% with verification=sub.ai_verification %}
+                            {% if verification or sub.ai_quality_score or sub.summary %}
+                            <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <span class="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">AI verification</span>
+                                        {% if verification.grading_style %}
+                                        <p class="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+                                            {{ verification.grading_style|capfirst }} scoring
+                                            {% if verification.minimum_score %} - Minimum {{ verification.minimum_score|floatformat:0 }}/100{% endif %}
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                    <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                                        {% if verification %}{{ verification.overall_score|floatformat:1 }}/100{% else %}{{ sub.ai_quality_score|floatformat:1 }}/100{% endif %}
+                                    </span>
+                                </div>
+                                {% if verification.summary or sub.summary %}
+                                <p class="mt-2 whitespace-pre-wrap text-sm text-emerald-900 dark:text-emerald-100">{{ verification.summary|default:sub.summary }}</p>
+                                {% endif %}
+
+                                {% if verification.criteria %}
+                                <div class="mt-4 space-y-3">
+                                    {% for criterion in verification.criteria %}
+                                    <div class="rounded-lg border border-emerald-100 bg-white/80 p-3 dark:border-emerald-900/30 dark:bg-slate-900/40">
+                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                            <div>
+                                                <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ criterion.name|default:"Criterion" }}</h4>
+                                                {% if criterion.weight %}
+                                                <p class="text-xs text-slate-500 dark:text-slate-400">{{ criterion.weight|floatformat:0 }} pts weight</p>
+                                                {% endif %}
+                                            </div>
+                                            <span class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                                {{ criterion.score|default:0|floatformat:1 }}/100
+                                            </span>
+                                        </div>
+                                        {% if criterion.feedback %}
+                                        <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ criterion.feedback }}</p>
+                                        {% endif %}
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            {% if criterion.matched_terms %}
+                                                {% for term in criterion.matched_terms %}
+                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                                    Matched: {{ term }}
+                                                </span>
+                                                {% endfor %}
+                                            {% endif %}
+                                            {% if criterion.missing_terms %}
+                                                {% for term in criterion.missing_terms %}
+                                                <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+                                                    Missing: {{ term }}
+                                                </span>
+                                                {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+                            
                             {% if forloop.first and task.status == 'quality_review' and user == task.student %}
-                                <div class="mt-4 flex gap-3">
-                                    <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">Accept & Release Funds</button>
-                                    <button class="rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Request Revision</button>
+                                <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                                    <form action="{% url 'marketplace:task_rate' task.pk %}" method="post" class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/50">
+                                        {% csrf_token %}
+                                        <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Approve delivery</h4>
+                                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Rate the delivery. Low accuracy scores open a manager dispute automatically.</p>
+                                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ rating_form.overall_rating.id_for_label }}">Overall</label>
+                                                {{ rating_form.overall_rating }}
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ rating_form.accuracy_rating.id_for_label }}">Accuracy</label>
+                                                {{ rating_form.accuracy_rating }}
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ rating_form.communication_rating.id_for_label }}">Communication</label>
+                                                {{ rating_form.communication_rating }}
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ rating_form.speed_rating.id_for_label }}">Speed</label>
+                                                {{ rating_form.speed_rating }}
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ rating_form.comments.id_for_label }}">Comments</label>
+                                            {{ rating_form.comments }}
+                                        </div>
+                                        <button class="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">Approve & Release Payment</button>
+                                    </form>
+
+                                    <form action="{% url 'marketplace:task_revision' task.pk %}" method="post" class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/50">
+                                        {% csrf_token %}
+                                        <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Request revision</h4>
+                                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Use this when the submission needs changes instead of a refund.</p>
+                                        <div class="mt-3">
+                                            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ revision_form.reason.id_for_label }}">Reason</label>
+                                            {{ revision_form.reason }}
+                                        </div>
+                                        <div class="mt-3">
+                                            <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400" for="{{ revision_form.due_at.id_for_label }}">Due at</label>
+                                            {{ revision_form.due_at }}
+                                        </div>
+                                        <button class="mt-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Request Revision</button>
+                                    </form>
                                 </div>
                             {% endif %}
                         </div>
                         {% endfor %}
                     </div>
+                </div>
+                {% endif %}
+
+                {% if chat_access %}
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 shadow-sm">
+                    <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-6">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Conversation</h2>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                {% if portal_role == 'student' %}
+                                    Shared messages with your assigned tasker.
+                                {% elif portal_role == 'tasker' %}
+                                    Shared messages reach the student. Team notes stay private.
+                                {% else %}
+                                    Shared messages, team notes, and manager notes are visible here.
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                                {{ conversation_unread_count }} unread{% if conversation_unread_count != 1 %} messages{% else %} message{% endif %}
+                            </span>
+                            <a href="{{ conversation_dashboard_url }}" class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300 dark:hover:bg-indigo-950/50">
+                                {{ conversation_dashboard_label }}
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        {% for message in conversation_messages %}
+                        <div class="rounded-2xl border p-4
+                            {% if message.sender_id == user.id %}
+                                border-indigo-200 bg-indigo-50/60 dark:border-indigo-900/60 dark:bg-indigo-950/20
+                            {% elif message.is_ai %}
+                                border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/20
+                            {% elif message.metadata.visibility == 'internal' %}
+                                border-amber-200 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20
+                            {% elif message.metadata.visibility == 'team' %}
+                                border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40
+                            {% else %}
+                                border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800
+                            {% endif %}">
+                            <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">
+                                        {% if message.is_ai %}
+                                            AI Verifier
+                                        {% elif message.sender_id == user.id %}
+                                            You
+                                        {% elif message.sender %}
+                                            {{ message.sender.get_full_name|default:message.sender.username }}
+                                        {% else %}
+                                            System
+                                        {% endif %}
+                                    </p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                        {% if message.metadata.visibility == 'internal' %}
+                                            Managers only
+                                        {% elif message.metadata.visibility == 'team' %}
+                                            Task team only
+                                        {% else %}
+                                            Shared with student
+                                        {% endif %}
+                                        {% if message.is_ai %} | AI checked{% endif %}
+                                    </p>
+                                </div>
+                                <span class="text-xs text-slate-400">{{ message.created_at|date:"M d, Y H:i" }}</span>
+                            </div>
+                            <p class="mt-3 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{{ message.message }}</p>
+                        </div>
+                        {% empty %}
+                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                            No messages yet. Start the conversation with a shared update.
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if conversation_form %}
+                    <div class="mt-8 border-t border-slate-100 pt-6 dark:border-slate-700">
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white">Send a message</h3>
+                        <form action="{% url 'marketplace:task_message_post' task.pk %}" method="post" class="mt-4 space-y-4">
+                            {% csrf_token %}
+                            {% if conversation_form.non_field_errors %}
+                                <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+                                    {{ conversation_form.non_field_errors }}
+                                </div>
+                            {% endif %}
+                            <div>
+                                <label for="{{ conversation_form.message.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Message</label>
+                                {{ conversation_form.message }}
+                                {% if conversation_form.message.errors %}
+                                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ conversation_form.message.errors|striptags }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label for="{{ conversation_form.audience.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Audience</label>
+                                    {{ conversation_form.audience }}
+                                    {% if conversation_form.audience.errors %}
+                                        <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ conversation_form.audience.errors|striptags }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
+                                Send message
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                {% elif user == task.student and not task.assigned_tasker %}
+                <div class="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                    Conversation opens once an expert is assigned.
                 </div>
                 {% endif %}
                 
@@ -170,7 +394,11 @@
                     <ul class="space-y-4 text-sm">
                         <li class="flex justify-between border-b border-slate-100 dark:border-slate-700/50 pb-2">
                             <span class="text-slate-500 dark:text-slate-400">Budget</span>
-                            <span class="font-medium text-slate-900 dark:text-white">{{ task.currency }} {{ task.budget_cents|add:0|floatformat:2 }}</span>
+                            <span class="font-medium text-slate-900 dark:text-white">{{ task.display_price_label }}</span>
+                        </li>
+                        <li class="flex justify-between border-b border-slate-100 dark:border-slate-700/50 pb-2">
+                            <span class="text-slate-500 dark:text-slate-400">Price source</span>
+                            <span class="font-medium text-slate-900 dark:text-white">{{ task.price_source_label }}</span>
                         </li>
                         <li class="flex justify-between border-b border-slate-100 dark:border-slate-700/50 pb-2">
                             <span class="text-slate-500 dark:text-slate-400">Deadline</span>

@@ -42,6 +42,9 @@ if all([ADMIN_USER_NAME, ADMIN_USER_EMAIL]):
     ]
     MANAGERS=ADMINS
 
+# Gemini API Configuration for Interview Agent
+GOOGLE_GEMINI_API_KEY = config("GOOGLE_GEMINI_API_KEY", default=None)
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -77,6 +80,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # my-apps
+    "auth.apps.AuthConfig",
     "assignments",
     "marketplace",
     "trust",
@@ -130,6 +134,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "auth.context_processors.role_context",
             ],
         },
     },
@@ -187,6 +192,7 @@ ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 # django-allauth settings (updated for v0.63+)
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FORM_CLASS = "auth.forms.RoleSignupForm"
 # Optional email verification for development, mandatory for production
 ACCOUNT_EMAIL_VERIFICATION = "optional" if config("DJANGO_DEBUG", cast=bool, default=False) else "mandatory"
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[SaaS] "

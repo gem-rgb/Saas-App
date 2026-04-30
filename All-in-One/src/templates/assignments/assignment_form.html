@@ -19,7 +19,7 @@
           <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {{ form.title.label }}
           </label>
-          {% render_form_field form.title %}
+          {{ form.title }}
           {% if form.title.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.title.errors.0 }}</p>
           {% endif %}
@@ -30,7 +30,7 @@
           <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {{ form.description.label }}
           </label>
-          {% render_form_field form.description %}
+          {{ form.description }}
           {% if form.description.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.description.errors.0 }}</p>
           {% endif %}
@@ -41,10 +41,39 @@
           <label for="{{ form.required_skills.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {{ form.required_skills.label }}
           </label>
-          {% render_form_field form.required_skills %}
+          {{ form.required_skills }}
           <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Enter skills separated by commas</p>
           {% if form.required_skills.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.required_skills.errors.0 }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Verification Rubric -->
+        <div class="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-5 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <label for="{{ form.verification_rubric.id_for_label }}" class="block text-sm font-semibold text-cyan-950 dark:text-cyan-100 mb-1">
+                Verification Rubric (optional)
+              </label>
+              <p class="text-xs text-cyan-900/80 dark:text-cyan-200/80">
+                This JSON tells the AI verifier how to score the final submission and how to explain each criterion.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-cyan-700 dark:text-cyan-200">
+              <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">answer_type</span>
+              <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">grading_style</span>
+              <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">minimum_score</span>
+              <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">criteria</span>
+            </div>
+          </div>
+          <div class="mt-4">
+            {{ form.verification_rubric }}
+          </div>
+          <p class="text-xs text-cyan-900/80 dark:text-cyan-200/80 mt-3">
+            Keep required terms explicit so the result is deterministic and easy to audit.
+          </p>
+          {% if form.verification_rubric.errors %}
+            <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.verification_rubric.errors.0 }}</p>
           {% endif %}
         </div>
 
@@ -53,7 +82,7 @@
           <label for="{{ form.priority.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {{ form.priority.label }}
           </label>
-          {% render_form_field form.priority %}
+          {{ form.priority }}
           {% if form.priority.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.priority.errors.0 }}</p>
           {% endif %}
@@ -65,7 +94,7 @@
             <label for="{{ form.deadline.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.deadline.label }}
             </label>
-            {% render_form_field form.deadline %}
+            {{ form.deadline }}
             {% if form.deadline.errors %}
               <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.deadline.errors.0 }}</p>
             {% endif %}
@@ -76,7 +105,7 @@
             <label for="{{ form.estimated_hours.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {{ form.estimated_hours.label }}
             </label>
-            {% render_form_field form.estimated_hours %}
+            {{ form.estimated_hours }}
             {% if form.estimated_hours.errors %}
               <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.estimated_hours.errors.0 }}</p>
             {% endif %}
@@ -88,7 +117,7 @@
           <label for="{{ form.budget_cents.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {{ form.budget_cents.label }}
           </label>
-          {% render_form_field form.budget_cents %}
+          {{ form.budget_cents }}
           <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">Leave blank if no budget (optional)</p>
           {% if form.budget_cents.errors %}
             <p class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.budget_cents.errors.0 }}</p>

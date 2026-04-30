@@ -35,7 +35,31 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio Summary</label>
-                                {{ application_form.bio_summary }}
+                                {{ application_form.bio }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-200 dark:border-slate-700">
+
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Background</h3>
+                        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Years of Experience</label>
+                                {{ application_form.years_experience }}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Education Level</label>
+                                {{ application_form.education_level }}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Portfolio URL</label>
+                                {{ application_form.portfolio_url }}
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Region Preference</label>
+                                {{ application_form.region_preference }}
                             </div>
                         </div>
                     </div>
@@ -46,7 +70,7 @@
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Competencies</h3>
                         <p class="text-sm text-slate-500 mb-4">Select the areas you are qualified to take assignments in. Note: You will be tested on these.</p>
                         <div>
-                            {{ application_form.competencies }}
+                            {{ application_form.competency_areas }}
                         </div>
                     </div>
 

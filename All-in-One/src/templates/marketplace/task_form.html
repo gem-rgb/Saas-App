@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block head_title %}Create Task - Marketplace{% endblock %}
+{% block head_title %}Create Assignment{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 relative py-12">
@@ -14,10 +14,10 @@
                 <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                Back to Dashboard
+                Back to Assignments
             </a>
-            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Post a New Task</h1>
-            <p class="mt-2 text-slate-600 dark:text-slate-400">Provide details about your assignment. Our AI will estimate the cost and match you with the best expert.</p>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Post a New Assignment</h1>
+            <p class="mt-2 text-slate-600 dark:text-slate-400">Provide details about your assignment. The platform will estimate the cost and match you with the best writer.</p>
         </div>
 
         <!-- Form Card -->
@@ -94,6 +94,31 @@
                                 <label for="{{ form.instructions.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Detailed Instructions</label>
                                 {{ form.instructions }}
                             </div>
+                            <div class="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-5 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+                                <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <label for="{{ form.verification_rubric.id_for_label }}" class="block text-sm font-semibold text-cyan-950 dark:text-cyan-100 mb-1">Verification Rubric (optional)</label>
+                                        <p class="text-xs text-cyan-900/80 dark:text-cyan-200/80">
+                                            This JSON controls how the AI verifies the final submission and how the criterion breakdown is shown to the tasker.
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2 text-[11px] font-semibold text-cyan-700 dark:text-cyan-200">
+                                        <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">answer_type</span>
+                                        <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">grading_style</span>
+                                        <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">minimum_score</span>
+                                        <span class="inline-flex items-center rounded-full bg-white px-2.5 py-1 shadow-sm dark:bg-slate-900/70">criteria</span>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    {{ form.verification_rubric }}
+                                </div>
+                                <p class="mt-3 text-xs text-cyan-900/80 dark:text-cyan-200/80">
+                                    Keep criteria explicit. Required terms make the AI score deterministic and easier to audit.
+                                </p>
+                                {% if form.verification_rubric.errors %}
+                                <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ form.verification_rubric.errors.0 }}</p>
+                                {% endif %}
+                            </div>
                             <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                                 <div>
                                     <label for="{{ form.complexity_level.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Complexity Level</label>
@@ -123,6 +148,19 @@
                             <div>
                                 <label for="{{ form.estimated_hours.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Estimated Hours</label>
                                 {{ form.estimated_hours }}
+                            </div>
+                            <div class="sm:col-span-2 rounded-2xl border border-cyan-200 bg-cyan-50/70 p-5 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+                                <div class="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                                    <div>
+                                        <label for="{{ form.budget_cents.id_for_label }}" class="block text-sm font-semibold text-cyan-950 dark:text-cyan-100 mb-1">Budget / payout</label>
+                                        <p class="text-xs text-cyan-900/80 dark:text-cyan-200/80">
+                                            Leave blank to let the AI estimate a payout from the task type, complexity, and deadline. Coding, architecture, medicine, and other technical work usually price higher.
+                                        </p>
+                                    </div>
+                                    <div class="min-w-[16rem]">
+                                        {{ form.budget_cents }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

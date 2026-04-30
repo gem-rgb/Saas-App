@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block head_title %}Tasker Onboarding{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/50 dark:bg-slate-900 py-10 relative">
+  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-cyan-100/40 via-transparent to-transparent dark:from-cyan-900/20 z-0 pointer-events-none"></div>
+
+  <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="max-w-3xl">
+        <a href="{% url 'trust:dashboard' %}" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors mb-4">
+          <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          Back to Trust Hub
+        </a>
+        <p class="text-xs uppercase tracking-[0.35em] text-cyan-600 dark:text-cyan-300">Tasker onboarding</p>
+        <h1 class="mt-3 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white lg:text-5xl">Finish KYC, choose your strengths, then wait for manager approval.</h1>
+        <p class="mt-4 max-w-2xl text-slate-600 dark:text-slate-400">
+          This page is the gate between interview completion and the tasker portal. Once your KYC and competency areas are submitted, the manager can approve you and unlock marketplace access.
+        </p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 text-sm">
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-slate-500 dark:text-slate-400">Application</p>
+          <p class="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{{ application.get_status_display }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-slate-500 dark:text-slate-400">Readiness</p>
+          <p class="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{{ readiness }}%</p>
+        </div>
+      </div>
+    </div>
+
+    <section class="grid gap-4 md:grid-cols-4">
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Selected competencies</p>
+        <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ competency_count }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">areas chosen</p>
+      </div>
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">KYC</p>
+        <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ identity.get_status_display }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">identity status</p>
+      </div>
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Interview</p>
+        <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{% if interviews %}Done{% else %}Pending{% endif %}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">AI interview stage</p>
+      </div>
+      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Portal access</p>
+        <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{% if application.status == 'approved' %}Open{% else %}Locked{% endif %}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">tasker portal</p>
+      </div>
+    </section>
+
+    <section class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.3em] text-cyan-600 dark:text-cyan-300">Onboarding form</p>
+            <h2 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">KYC and competency selection</h2>
+            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Complete both forms to send your profile to the manager queue.</p>
+          </div>
+          {% if selected_competencies %}
+          <div class="flex flex-wrap gap-2">
+            {% for competency in selected_competencies %}
+            <span class="inline-flex items-center rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-200">{{ competency.name }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="mt-8 space-y-8">
+          {% csrf_token %}
+          {% if application_form.errors or kyc_form.errors %}
+          <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-200">
+            Please correct the errors below before submitting for manager approval.
+            {% if application_form.errors %}
+            <div class="mt-2">{{ application_form.errors }}</div>
+            {% endif %}
+            {% if kyc_form.errors %}
+            <div class="mt-2">{{ kyc_form.errors }}</div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <section class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Headline</label>
+              {{ application_form.headline }}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio</label>
+              {{ application_form.bio }}
+            </div>
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Years of experience</label>
+                {{ application_form.years_experience }}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Education level</label>
+                {{ application_form.education_level }}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Portfolio URL</label>
+                {{ application_form.portfolio_url }}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Region preference</label>
+                {{ application_form.region_preference }}
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-3xl border border-cyan-200 bg-cyan-50/70 p-5 dark:border-cyan-900/40 dark:bg-cyan-950/20">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.3em] text-cyan-700 dark:text-cyan-300">Competency areas</p>
+                <h3 class="mt-1 text-lg font-bold text-cyan-950 dark:text-cyan-100">Choose the work types you can handle</h3>
+              </div>
+              <p class="text-xs text-cyan-900/80 dark:text-cyan-200/80">These preferences drive recommendations in your tasker portal.</p>
+            </div>
+            <div class="mt-4">
+              {{ application_form.competency_areas }}
+            </div>
+            {% if application_form.competency_areas.errors %}
+            <p class="mt-2 text-sm text-rose-600 dark:text-rose-400">{{ application_form.competency_areas.errors|striptags }}</p>
+            {% endif %}
+            <div class="mt-4 rounded-2xl border border-cyan-200 bg-white/80 p-4 text-sm text-cyan-950 shadow-sm dark:border-cyan-900/40 dark:bg-cyan-950/30 dark:text-cyan-100">
+              <p class="font-semibold">AI interview focus</p>
+              <p class="mt-1">{{ interview_focus.field_label }} - {{ interview_focus.topic }}</p>
+              {% if interview_focus.competency_names %}
+              <p class="mt-1 text-xs text-cyan-900/70 dark:text-cyan-200/80">Derived from {{ interview_focus.competency_names|join:", " }}</p>
+              {% endif %}
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">KYC</p>
+              <h3 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">Verify your identity</h3>
+              <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Upload a selfie and the front/back of your government ID.</p>
+            </div>
+            <div class="grid gap-4 md:grid-cols-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Selfie</label>
+                {{ kyc_form.selfie_image }}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ID front</label>
+                {{ kyc_form.id_front_image }}
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ID back</label>
+                {{ kyc_form.id_back_image }}
+              </div>
+            </div>
+            <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-800/70 dark:text-slate-300">
+              After you submit, the manager can approve your application and the tasker portal will unlock automatically.
+            </div>
+          </section>
+
+          <div class="flex flex-col gap-3 sm:flex-row">
+            {% if application.status == 'approved' and not tasker_portal_ready %}
+            <div class="inline-flex flex-1 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 px-6 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+              Your application is already approved. Use the fix profile action to restore portal access.
+            </div>
+            {% else %}
+            <button type="submit" class="inline-flex flex-1 items-center justify-center rounded-2xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500 transition-colors">
+              Submit for manager approval
+            </button>
+            {% endif %}
+            <a href="{{ portal_url }}" class="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+              {% if tasker_portal_ready %}Open tasker portal{% elif application.status == 'approved' %}Fix tasker profile{% else %}Portal locked until approved{% endif %}
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <aside class="space-y-6">
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">What happens next</p>
+          <div class="mt-4 space-y-4">
+            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="text-sm font-semibold text-slate-900 dark:text-white">1. You submit KYC and competencies</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">The system saves your onboarding data and keeps the application under review.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="text-sm font-semibold text-slate-900 dark:text-white">2. Manager review</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">A manager checks your profile, interview, and KYC before approval.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="text-sm font-semibold text-slate-900 dark:text-white">3. Tasker portal unlocks</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Once approved, your dashboard and marketplace access open automatically.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Interview history</p>
+          <div class="mt-4 space-y-3">
+            {% for session in interviews|slice:":4" %}
+            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ session.get_mode_display }}</p>
+              <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Score {{ session.overall_score|floatformat:1 }}/100</p>
+            </div>
+            {% empty %}
+            <p class="text-sm text-slate-500 dark:text-slate-400">No interview sessions yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+    </section>
+  </div>
+</div>
+{% endblock content %}

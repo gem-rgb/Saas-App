@@ -1,92 +1,150 @@
 {% extends 'dashboard/base.html' %}
-{% block head_title %}ML Analytics - {{ block.super }}{% endblock %}
+{% block head_title %}Assignment Insights - {{ block.super }}{% endblock %}
 {% block content %}
-<div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">🧠 ML Analytics Dashboard</h1>
-    <p class="text-gray-500 dark:text-gray-400 mt-1">Machine learning-powered insights about your account</p>
+{% if locked %}
+<div class="max-w-2xl mx-auto rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <p class="text-xs font-bold uppercase tracking-[0.3em] text-cyan-600 dark:text-cyan-400">Premium feature</p>
+    <h1 class="mt-3 text-3xl font-bold text-slate-900 dark:text-white">Analytics is locked</h1>
+    <p class="mt-4 text-slate-600 dark:text-slate-400">This dashboard is included in paid plans and shows assignment health, dispute load, and quality trends.</p>
+    <div class="mt-6 flex gap-3">
+        <a href="{{ upgrade_url }}" class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">View plans</a>
+        <a href="{% url 'dashboard:portal-home' %}" class="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Back to portal</a>
+    </div>
 </div>
-
-<!-- Health + Churn -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Account Health Score</h3>
-        <div class="relative w-28 h-28 mx-auto mb-3">
-            <svg class="w-28 h-28 transform -rotate-90" viewBox="0 0 36 36">
-                <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#e5e7eb" stroke-width="2.5"></path>
-                <path d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="{% if health_color == 'green' %}#22c55e{% elif health_color == 'yellow' %}#eab308{% else %}#ef4444{% endif %}" stroke-width="2.5" stroke-dasharray="{{ health_score }}, 100" stroke-linecap="round"></path>
-            </svg>
-            <div class="absolute inset-0 flex items-center justify-center">
-                <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ health_score }}</span>
+{% else %}
+<div class="space-y-8">
+    <section class="rounded-[2rem] bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 p-8 text-white shadow-2xl">
+        <div class="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-3xl">
+                <p class="text-sm uppercase tracking-[0.35em] text-cyan-300">Assignment insights</p>
+                <h1 class="mt-3 text-3xl font-semibold lg:text-5xl">Quality and dispute overview</h1>
+                <p class="mt-4 max-w-2xl text-slate-300">A paid view of assignment health, task quality, and the current dispute load.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p class="text-slate-300">Health</p>
+                    <p class="mt-1 text-3xl font-bold">{{ assignment_health }}</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p class="text-slate-300">Disputes</p>
+                    <p class="mt-1 text-3xl font-bold">{{ summary.disputes }}</p>
+                </div>
             </div>
         </div>
-        <span class="px-3 py-1 rounded-full text-xs font-medium {% if health_color == 'green' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% elif health_color == 'yellow' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ engagement_level|title }} Engagement</span>
-    </div>
-    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Churn Probability</h3>
-        <p class="text-4xl font-bold {% if churn_risk_level == 'low' %}text-green-500{% elif churn_risk_level == 'medium' %}text-yellow-500{% else %}text-red-500{% endif %} mb-2">{{ churn_probability }}%</p>
-        <span class="px-3 py-1 rounded-full text-xs font-medium {% if churn_risk_level == 'low' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400{% elif churn_risk_level == 'medium' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">{{ churn_risk_level|title }} Risk</span>
-    </div>
-    <div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 text-center">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Predicted Usage</h3>
-        <p class="text-4xl font-bold text-blue-500 mb-2">{{ usage_forecast }}</p>
-        <span class="text-xs text-gray-500">actions next month</span>
-    </div>
-</div>
+    </section>
 
-<!-- Usage Chart -->
-<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 mb-6">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Activity Trend — Last 7 Days</h3>
-    <div class="flex items-end space-x-3 h-40">
-        {% for day in usage_chart_data %}
-        <div class="flex-1 flex flex-col items-center">
-            <span class="text-xs text-gray-500 mb-1">{{ day.count }}</span>
-            <div class="w-full bg-gradient-to-t from-blue-600 to-purple-500 rounded-t-lg transition-all hover:from-blue-700 hover:to-purple-600" style="height: {{ day.height }}%"></div>
-            <span class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ day.day }}</span>
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-sm text-slate-500 dark:text-slate-400">Total assignments</p>
+            <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ summary.total_assignments }}</p>
         </div>
-        {% endfor %}
-    </div>
-</div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-sm text-slate-500 dark:text-slate-400">Open assignments</p>
+            <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ summary.open_assignments }}</p>
+        </div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-sm text-slate-500 dark:text-slate-400">Average rating</p>
+            <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ average_rating|floatformat:1 }}/5</p>
+        </div>
+        <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-sm text-slate-500 dark:text-slate-400">Average accuracy</p>
+            <p class="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{{ average_accuracy|floatformat:1 }}/5</p>
+        </div>
+    </section>
 
-<!-- Recommendations -->
-<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700 mb-6">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Personalized Recommendations</h3>
-    {% if recommendations %}
-    <div class="grid gap-4 md:grid-cols-2">
-        {% for rec in recommendations %}
-        <div class="p-4 rounded-lg border {% if rec.type == 'warning' %}border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-800{% elif rec.type == 'upgrade' %}border-purple-200 bg-purple-50 dark:bg-purple-900/10 dark:border-purple-800{% elif rec.type == 'success' %}border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800{% else %}border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800{% endif %}">
-            <p class="font-medium text-gray-900 dark:text-white">{{ rec.icon }} {{ rec.title }}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ rec.text }}</p>
-            {% if rec.action_url %}
-            <a href="{{ rec.action_url }}" class="inline-block mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">{{ rec.action_text }} →</a>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-gray-500 text-sm">Keep using the platform to get personalized ML recommendations!</p>
-    {% endif %}
-</div>
+    <section class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
+        <div class="space-y-6">
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Recent assignments</p>
+                        <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Focus subject: {{ focus_subject }}</h2>
+                    </div>
+                    <span class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-medium text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">Health {{ assignment_health }}</span>
+                </div>
+                <div class="mt-4 space-y-3">
+                    {% for task in recent_tasks %}
+                    <a href="{% url 'marketplace:task_detail' task.pk %}" class="flex items-center justify-between rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
+                        <div>
+                            <p class="font-medium text-slate-900 dark:text-white">{{ task.title }}</p>
+                            <p class="text-sm text-slate-500">{{ task.get_status_display }} | {{ task.subject }}</p>
+                        </div>
+                        <span class="text-sm text-slate-500">{{ task.display_price_label }}</span>
+                    </a>
+                    {% empty %}
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No assignments available yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
 
-<!-- Feature Breakdown -->
-<div class="p-6 bg-white rounded-xl border shadow-sm dark:bg-gray-800 dark:border-gray-700">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Engagement Metrics</h3>
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.login_count }}</p>
-            <p class="text-xs text-gray-500">Logins (30d)</p>
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Recommended writers</p>
+                        <h2 class="text-xl font-semibold text-slate-900 dark:text-white">Best fit for {{ focus_subject }}</h2>
+                    </div>
+                    <a href="{% url 'dashboard:portal-home' %}" class="text-sm font-medium text-cyan-600 dark:text-cyan-300">Portal</a>
+                </div>
+                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                    {% for writer in recommended_taskers %}
+                    <a href="{% url 'profile_detail' writer.tasker.user.username %}" class="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:bg-cyan-950/20">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <p class="font-semibold text-slate-900 dark:text-white">{{ writer.tasker.user.get_full_name|default:writer.tasker.user.username }}</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">{{ writer.region_name }}</p>
+                            </div>
+                            <span class="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white dark:bg-slate-100 dark:text-slate-900">{{ writer.score|floatformat:1 }}%</span>
+                        </div>
+                        <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ writer.reason }}</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            {% for specialty in writer.specialties %}
+                            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-300">{{ specialty }}</span>
+                            {% endfor %}
+                        </div>
+                    </a>
+                    {% empty %}
+                    <div class="rounded-3xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        No writer recommendations yet.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.page_views }}</p>
-            <p class="text-xs text-gray-500">Page Views (30d)</p>
-        </div>
-        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.feature_uses }}</p>
-            <p class="text-xs text-gray-500">Feature Uses (30d)</p>
-        </div>
-        <div class="text-center p-3 rounded-lg bg-gray-50 dark:bg-gray-700">
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ features.days_since_last_activity }}d</p>
-            <p class="text-xs text-gray-500">Since Last Activity</p>
-        </div>
-    </div>
+
+        <aside class="space-y-6">
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Recent disputes</h2>
+                <div class="mt-4 space-y-3">
+                    {% for dispute in recent_disputes %}
+                    <a href="{% url 'marketplace:task_detail' dispute.task.pk %}" class="block rounded-2xl border border-slate-200 p-4 transition hover:border-cyan-400 hover:bg-cyan-50 dark:border-slate-800 dark:hover:bg-cyan-950/20">
+                        <p class="text-sm font-medium text-slate-900 dark:text-white">{{ dispute.task.title }}</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ dispute.reason|truncatechars:110 }}</p>
+                    </a>
+                    {% empty %}
+                    <p class="text-sm text-slate-500 dark:text-slate-400">No disputes in the current queue.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quick metrics</h2>
+                <div class="mt-4 space-y-3 text-sm">
+                    <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                        <span class="text-slate-500 dark:text-slate-400">Active assignments</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ summary.active_assignments }}</span>
+                    </div>
+                    <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                        <span class="text-slate-500 dark:text-slate-400">Completed</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ summary.completed_assignments }}</span>
+                    </div>
+                    <div class="flex justify-between rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                        <span class="text-slate-500 dark:text-slate-400">Disputes</span>
+                        <span class="font-medium text-slate-900 dark:text-white">{{ summary.disputes }}</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
 </div>
+{% endif %}
 {% endblock %}

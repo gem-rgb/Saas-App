@@ -56,6 +56,25 @@ class IdentityVerificationForm(forms.ModelForm):
         }
 
 
+class TaskerKYCForm(forms.ModelForm):
+    selfie_image = forms.ImageField(
+        required=True,
+        widget=forms.FileInput(attrs={"class": BASE_INPUT}),
+    )
+    id_front_image = forms.ImageField(
+        required=True,
+        widget=forms.FileInput(attrs={"class": BASE_INPUT}),
+    )
+    id_back_image = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={"class": BASE_INPUT}),
+    )
+
+    class Meta:
+        model = IdentityVerification
+        fields = ["selfie_image", "id_front_image", "id_back_image"]
+
+
 class InterviewSessionForm(forms.ModelForm):
     class Meta:
         model = AIInterviewSession
@@ -63,4 +82,3 @@ class InterviewSessionForm(forms.ModelForm):
         widgets = {
             "mode": forms.Select(attrs={"class": BASE_INPUT}),
         }
-

@@ -1,4 +1,4 @@
-import helpers.billing
+import helpers.paystack_billing
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib import messages
@@ -27,45 +27,73 @@ def checkout_redirect_view(request):
         obj = None
     if checkout_subscription_price_id is None or obj is None:
         return redirect("pricing")
-    customer_stripe_id = request.user.customer.stripe_id
+    # Generate a unique reference
+    import uuid
+    reference = str(uuid.uuid4())
     success_url_path = reverse("stripe-checkout-end")
-    pricing_url_path = reverse("pricing")
     success_url = f"{BASE_URL}{success_url_path}"
-    cancel_url= f"{BASE_URL}{pricing_url_path}"
-    price_stripe_id = obj.stripe_id
-    url = helpers.billing.start_checkout_session(
-        customer_stripe_id,
-        success_url=success_url,
-        cancel_url=cancel_url,
-        price_stripe_id=price_stripe_id,
-        raw=False
-
-    )
+    
+    try:
+        response_data = helpers.paystack_billing.initialize_transaction(
+            email=request.user.email,
+            amount_minor=int(obj.price * 100),
+            reference=reference,
+            callback_url=success_url,
+            plan=obj.paystack_id,
+            metadata={
+                "customer_id": request.user.customer.paystack_id,
+                "plan_id": obj.paystack_id,
+                "user_id": request.user.id
+            }
+        )
+        url = response_data.get("data", {}).get("authorization_url")
+        if not url:
+            return redirect("pricing")
+    except Exception as e:
+        print(f"Paystack Init Error: {e}")
+        return redirect("pricing")
+        
     return redirect(url)
 
 
 def checkout_finalize_view(request):
-    session_id = request.GET.get('session_id')
-    checkout_data = helpers.billing.get_checkout_customer_plan(session_id)
-    plan_id = checkout_data.pop('plan_id')
-    customer_id = checkout_data.pop('customer_id')
-    sub_stripe_id = checkout_data.pop("sub_stripe_id")
-    subscription_data = {**checkout_data}
+    reference = request.GET.get('reference')
+    if not reference:
+        return redirect("pricing")
+        
     try:
-        sub_obj = Subscription.objects.get(subscriptionprice__stripe_id=plan_id)
+        verify_data = helpers.paystack_billing.verify_transaction(reference)
+        status = verify_data.get("data", {}).get("status")
+        if status != "success":
+            return HttpResponseBadRequest("Transaction was not successful.")
+            
+        metadata = verify_data.get("data", {}).get("metadata", {})
+        plan_id = metadata.get('plan_id')
+        customer_id = metadata.get('customer_id')
+        
+        # Paystack doesn't send sub ID immediately in verify, it sends it via webhook usually.
+        # We will create an inactive sub or try to get it.
+        sub_paystack_id = verify_data.get("data", {}).get("authorization", {}).get("authorization_code")
+        
+    except Exception as e:
+        print(f"Paystack Verify Error: {e}")
+        return HttpResponseBadRequest("Could not verify transaction.")
+
+    try:
+        sub_obj = Subscription.objects.get(subscriptionprice__paystack_id=plan_id)
     except:
         sub_obj = None
     try:
-        user_obj = User.objects.get(customer__stripe_id=customer_id)
+        user_obj = User.objects.get(customer__paystack_id=customer_id)
     except:
         user_obj = None
 
     _user_sub_exists = False
     updated_sub_options = {
         "subscription": sub_obj,
-        "stripe_id": sub_stripe_id,
+        "paystack_id": sub_paystack_id, # Can be authorization code for now
         "user_cancelled": False,
-        **subscription_data,
+        "status": "active",
     }
     try:
         _user_sub_obj = UserSubscription.objects.get(user=user_obj)
@@ -81,11 +109,12 @@ def checkout_finalize_view(request):
         return HttpResponseBadRequest("There was an error with your account, please contact us.")
     if _user_sub_exists:
         # cancel old sub
-        old_stripe_id = _user_sub_obj.stripe_id
-        same_stripe_id = sub_stripe_id == old_stripe_id
-        if old_stripe_id is not None and not same_stripe_id:
+        old_paystack_id = _user_sub_obj.paystack_id
+        same_paystack_id = sub_paystack_id == old_paystack_id
+        if old_paystack_id is not None and not same_paystack_id:
             try:
-                helpers.billing.cancel_subscription(old_stripe_id, reason="Auto ended, new membership", feedback="other")
+                # We would need the email token to cancel in Paystack API
+                pass
             except:
                 pass
         # assign new sub

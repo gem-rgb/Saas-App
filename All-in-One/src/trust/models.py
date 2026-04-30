@@ -216,3 +216,74 @@ class AIInterviewScore(models.Model):
     def __str__(self):
         return f"{self.competency_area.name}: {self.score}"
 
+
+class InteractiveInterviewSession(models.Model):
+    """Interactive interview with Gemini-powered Q&A"""
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETED = "completed", "Completed"
+        ABANDONED = "abandoned", "Abandoned"
+
+    class InterviewField(models.TextChoices):
+        SOFTWARE_ENGINEERING = "software_engineering", "Software Engineering"
+        DATA_SCIENCE = "data_science", "Data Science"
+        CHEMISTRY = "chemistry", "Chemistry"
+        BIOLOGY = "biology", "Biology"
+        MATHEMATICS = "mathematics", "Mathematics"
+        GENERAL_KNOWLEDGE = "general_knowledge", "General Knowledge"
+
+    application = models.ForeignKey(TaskerApplication, on_delete=models.CASCADE, related_name="interactive_interviews")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    field = models.CharField(max_length=50, choices=InterviewField.choices, default=InterviewField.SOFTWARE_ENGINEERING)
+    difficulty = models.CharField(max_length=50, choices=[("Beginner", "Beginner"), ("Intermediate", "Intermediate"), ("Advanced", "Advanced")])
+    language = models.CharField(max_length=100, blank=True, default="")  # For coding interviews
+    
+    total_questions = models.IntegerField(default=5)
+    questions_completed = models.IntegerField(default=0)
+    overall_score = models.FloatField(default=0.0)
+    recommendation = models.CharField(max_length=60, blank=True, default="")
+    percentile = models.FloatField(default=0.0)
+    
+    metadata = models.JSONField(default=dict, blank=True)  # Store agent state, scores, etc.
+    
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.application.applicant.username} - {self.get_field_display()} ({self.get_status_display()})"
+
+
+class InterviewQuestion(models.Model):
+    """Individual question in interactive interview"""
+    session = models.ForeignKey(InteractiveInterviewSession, on_delete=models.CASCADE, related_name="questions")
+    question_number = models.IntegerField()
+    question_text = models.TextField()
+    expected_concepts = models.JSONField(default=list, blank=True)
+    ideal_answer_points = models.JSONField(default=list, blank=True)
+    time_limit_minutes = models.IntegerField(default=3)
+    user_answer = models.TextField(blank=True, default="")
+    
+    # Evaluation data
+    is_correct = models.BooleanField(null=True, blank=True)
+    correctness_score = models.FloatField(default=0.0, validators=[MinValueValidator(0.0), MaxValueValidator(100.0)])
+    explanation = models.TextField(blank=True, default="")
+    strengths = models.JSONField(default=list, blank=True)
+    weaknesses = models.JSONField(default=list, blank=True)
+    feedback = models.TextField(blank=True, default="")
+    
+    answered_at = models.DateTimeField(null=True, blank=True)
+    evaluated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["question_number"]
+        unique_together = ("session", "question_number")
+
+    def __str__(self):
+        return f"Q{self.question_number}: {self.session} - Score: {self.correctness_score}"
+

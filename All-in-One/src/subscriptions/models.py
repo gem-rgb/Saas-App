@@ -1,5 +1,5 @@
 import datetime
-import helpers.billing
+import helpers.paystack_billing
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth.models import Group, Permission
@@ -7,6 +7,7 @@ from django.db.models.signals import post_save
 from django.conf import settings 
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 
 User = settings.AUTH_USER_MODEL # "auth.User"
 
@@ -18,6 +19,43 @@ SUBSCRIPTION_PERMISSIONS = [
     ("basic_ai", "Basic AI Perm")
 ]
 
+FEATURE_CODE_ALIASES = {
+    "task_creation": {"task_creation", "task-creation", "assignment_creation", "assignment-creation"},
+    "subject_recommendations": {
+        "subject_recommendations",
+        "subject-recommendations",
+        "subject_based_recommendations",
+        "subject-based-writer-recommendations",
+        "subject-based-writer-suggestions",
+        "assignment_recommendations",
+    },
+    "task_tracking": {"task_tracking", "task-tracking", "assignment_tracking", "assignment-tracking"},
+    "basic_support": {"basic_support", "basic-support", "email-support"},
+    "live_marketplace": {"live_marketplace", "live-marketplace", "marketplace", "marketplace-access"},
+    "priority_matching": {"priority_matching", "priority-matching"},
+    "task_chat": {"task_chat", "task-chat", "chat", "in-app-chat"},
+    "revision_requests": {"revision_requests", "revision-requests", "revision"},
+    "analytics_dashboard": {
+        "analytics_dashboard",
+        "analytics-dashboard",
+        "assignment_analytics",
+        "assignment-analytics",
+        "assignment_insights",
+        "assignment-insights",
+        "analytics",
+    },
+    "manager_console": {"manager_console", "manager-console", "operations", "operations-console"},
+    "dispute_resolution": {"dispute_resolution", "dispute-resolution", "escalation_resolution", "escalation-resolution"},
+    "refund_management": {"refund_management", "refund-management", "refunds", "refund-processing"},
+    "quality_reports": {"quality_reports", "quality-reports", "quality_analysis", "quality-analysis"},
+}
+
+
+def _normalize_feature_code(value):
+    if value is None:
+        return ""
+    return slugify(str(value).strip()).replace("-", "_")
+
 
 # Create your models here.
 class Subscription(models.Model):
@@ -28,11 +66,12 @@ class Subscription(models.Model):
     subtitle = models.TextField(blank=True, null=True)
     active = models.BooleanField(default=True)
     groups = models.ManyToManyField(Group) # one-to-one
+    feature_codes = models.JSONField(default=list, blank=True)
     permissions =  models.ManyToManyField(Permission, limit_choices_to={
         "content_type__app_label": "subscriptions", "codename__in": [x[0]for x in SUBSCRIPTION_PERMISSIONS]
         }
     )
-    stripe_id = models.CharField(max_length=120, null=True, blank=True)
+    paystack_id = models.CharField(max_length=120, null=True, blank=True)
 
     order = models.IntegerField(default=-1, help_text='Ordering on Django pricing page')
     featured = models.BooleanField(default=True, help_text='Featured on Django pricing page')
@@ -52,16 +91,35 @@ class Subscription(models.Model):
             return []
         return [x.strip() for x in self.features.split("\n")]
 
+    def get_feature_codes(self):
+        if isinstance(self.feature_codes, list) and self.feature_codes:
+            return [str(code).strip() for code in self.feature_codes if str(code).strip()]
+        if not self.features:
+            return []
+        return [slugify(feature) for feature in self.get_features_as_list()]
+
+    def has_feature(self, feature_code):
+        requested_code = _normalize_feature_code(feature_code)
+        if not requested_code:
+            return False
+
+        available_codes = {
+            _normalize_feature_code(code)
+            for code in self.get_feature_codes()
+            if _normalize_feature_code(code)
+        }
+        candidate_codes = {requested_code}
+        candidate_codes.update(
+            _normalize_feature_code(code)
+            for code in FEATURE_CODE_ALIASES.get(requested_code, set())
+        )
+        return bool(available_codes.intersection(candidate_codes))
+
     def save(self, *args, **kwargs):
-        if not self.stripe_id:
-            stripe_id = helpers.billing.create_product(
-                    name=self.name, 
-                    metadata={
-                        "subscription_plan_id": self.id
-                    }, 
-                    raw=False
-                )
-            self.stripe_id = stripe_id
+        # Paystack doesn't require a 'Product' wrapper like Stripe does.
+        # We can just leave paystack_id blank or generate a local reference.
+        if not self.paystack_id:
+            self.paystack_id = f"prod_local_{self.name.lower().replace(' ', '_')}"
         super().save(*args, **kwargs)
 
 
@@ -75,7 +133,7 @@ class SubscriptionPrice(models.Model):
         YEARLY = "year", "Yearly"
 
     subscription = models.ForeignKey(Subscription, on_delete=models.SET_NULL, null=True)
-    stripe_id = models.CharField(max_length=120, null=True, blank=True)
+    paystack_id = models.CharField(max_length=120, null=True, blank=True)
     interval = models.CharField(max_length=120, 
                                 default=IntervalChoices.MONTHLY, 
                                 choices=IntervalChoices.choices
@@ -113,36 +171,24 @@ class SubscriptionPrice(models.Model):
         return self.subscription.subtitle
     
     @property
-    def stripe_currency(self):
-        return "usd"
-    
-    @property
-    def stripe_price(self):
-        """
-        remove decimal places
-        """
-        return int(self.price * 100)
-
-    @property
-    def product_stripe_id(self):
+    def product_paystack_id(self):
         if not self.subscription:
             return None
-        return self.subscription.stripe_id
+        return self.subscription.paystack_id
     
     def save(self, *args, **kwargs):
-        if (not self.stripe_id and 
-            self.product_stripe_id is not None):
-            stripe_id = helpers.billing.create_price(
-                currency=self.stripe_currency,
-                unit_amount=self.stripe_price,
-                interval=self.interval,
-                product=self.product_stripe_id,
-                metadata={
-                        "subscription_plan_price_id": self.id
-                },
-                raw=False
-            )
-            self.stripe_id = stripe_id
+        if not self.paystack_id:
+            try:
+                # Paystack intervals are "monthly", "annually", etc.
+                paystack_interval = "monthly" if self.interval == "month" else "annually"
+                paystack_id = helpers.paystack_billing.create_plan(
+                    name=f"{self.subscription.name} - {self.interval}",
+                    amount_minor=int(self.price * 100),
+                    interval=paystack_interval,
+                )
+                self.paystack_id = paystack_id
+            except Exception as e:
+                print(f"Error creating Paystack plan: {e}")
         super().save(*args, **kwargs)
         if self.featured and self.subscription:
             qs = SubscriptionPrice.objects.filter(
@@ -224,7 +270,7 @@ class UserSubscriptionManager(models.Manager):
 class UserSubscription(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     subscription = models.ForeignKey(Subscription, on_delete=models.SET_NULL, null=True, blank=True)
-    stripe_id = models.CharField(max_length=120, null=True, blank=True)
+    paystack_id = models.CharField(max_length=120, null=True, blank=True)
     active = models.BooleanField(default=True)
     user_cancelled = models.BooleanField(default=False)
     original_period_start = models.DateTimeField(auto_now=False, auto_now_add=False, blank=True, null=True)
@@ -256,12 +302,18 @@ class UserSubscription(models.Model):
             return None
         return self.subscription.name
 
+    def has_feature(self, feature_code):
+        if not self.is_active_status or not self.subscription:
+            return False
+        return self.subscription.has_feature(feature_code)
+
     def serialize(self):
         return {
             "plan_name": self.plan_name,
             "status": self.status,
             "current_period_start": self.current_period_start,
             "current_period_end": self.current_period_end,
+            "feature_codes": self.subscription.get_feature_codes() if self.subscription else [],
         }
 
     @property

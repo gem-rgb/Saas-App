@@ -16,3 +16,4 @@ Pillow
 scikit-learn
 pandas
 numpy
+google-generativeai

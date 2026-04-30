@@ -1,17 +1,16 @@
-import datetime
-
 from django.contrib.auth.decorators import login_required
-from django.db import models
-from django.shortcuts import render
+from django.db.models import Avg, Count, Sum
+from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from analytics import ml_engine
-from analytics.models import UserActivity
-from marketplace.models import TaskMatchSuggestion, TaskNotification, TaskOrder
+from auth.permissions import portal_url_for_user, require_admin, require_manager, require_student, require_tasker
+from marketplace.models import TaskNotification, TaskOrder
 from marketplace.permissions import can_receive_work, get_platform_role
-from operations.models import EscalationCase, Region, TaskerPerformanceSnapshot
+from marketplace.services import recommend_task_rows_for_tasker, recommend_taskers_for_subject
+from assignments.models import TaskerProfile
+from operations.models import EscalationCase, Region
 from subscriptions.models import UserSubscription
-from trust.models import AIInterviewSession, IdentityVerification, TaskerApplication
+from trust.models import TaskerApplication
 
 
 def _tasker_profile(user):
@@ -22,120 +21,91 @@ def _manager_profile(user):
     return getattr(user, "manager_profile", None)
 
 
-def _tasker_gate(application):
-    if application is None:
-        return False
-    return {
-        "application_status": application.status,
-        "trust_score": application.trust_score,
-        "manual_review_required": application.manual_review_required,
-        "is_ready": application.status == TaskerApplication.Status.APPROVED,
-    }
-
-
-def _collect_common_context(request):
-    user = request.user
-    now = timezone.now()
-    portal_role = get_platform_role(user)
-
-    UserActivity.objects.create(
-        user=user,
-        action=UserActivity.ActionChoices.PAGE_VIEW,
-        path=request.path,
-        metadata={"page": "portal", "role": portal_role},
-    )
-
-    sub_info = {
+def _subscription_snapshot(user):
+    snapshot = {
         "plan_name": "Free",
-        "status": "No Plan",
+        "status": "inactive",
         "is_active": False,
         "days_remaining": 0,
-        "period_end": None,
         "period_start": None,
-        "membership_age": None,
+        "period_end": None,
+        "feature_codes": [],
     }
-    try:
-        user_sub = UserSubscription.objects.get(user=user)
-        sub_info["plan_name"] = user_sub.plan_name or "Free"
-        sub_info["status"] = user_sub.status or "No Plan"
-        sub_info["is_active"] = user_sub.is_active_status
-        sub_info["period_end"] = user_sub.current_period_end
-        sub_info["period_start"] = user_sub.current_period_start
-        if user_sub.current_period_end:
-            sub_info["days_remaining"] = max(0, (user_sub.current_period_end - now).days)
-        if user_sub.original_period_start:
-            sub_info["membership_age"] = (now - user_sub.original_period_start).days
-    except UserSubscription.DoesNotExist:
-        pass
+    user_sub = UserSubscription.objects.select_related("subscription").filter(user=user).first()
+    if not user_sub:
+        return snapshot
 
-    analytics = {}
-    try:
-        analytics = ml_engine.analyze_user(user)
-    except Exception:
-        analytics = {
-            "health_score": 50,
-            "health_color": "yellow",
-            "churn_probability": 30,
-            "churn_risk_level": "low",
-            "usage_forecast": 0,
-            "recommendations": [],
-        }
+    snapshot["plan_name"] = user_sub.plan_name or "Free"
+    snapshot["status"] = user_sub.status or "inactive"
+    snapshot["is_active"] = user_sub.is_active_status
+    snapshot["period_start"] = user_sub.current_period_start
+    snapshot["period_end"] = user_sub.current_period_end
+    if user_sub.current_period_end:
+        snapshot["days_remaining"] = max(0, (user_sub.current_period_end - timezone.now()).days)
+    if user_sub.subscription:
+        snapshot["feature_codes"] = user_sub.subscription.get_feature_codes()
+    return snapshot
 
-    recent_activities = UserActivity.objects.filter(user=user).order_by("-timestamp")[:8]
 
-    # Build 7-day usage chart with a single aggregated query (O(1) vs O(7))
-    week_start = (now - datetime.timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
-    daily_counts = dict(
-        UserActivity.objects.filter(user=user, timestamp__gte=week_start)
-        .extra(select={"day_date": "DATE(timestamp)"})
-        .values_list("day_date")
-        .annotate(count=models.Count("id"))
-        .values_list("day_date", "count")
-    )
-    usage_chart = []
-    for i in range(6, -1, -1):
-        day = now - datetime.timedelta(days=i)
-        count = daily_counts.get(day.date(), 0)
-        usage_chart.append({
-            "day": day.strftime("%a"),
-            "count": count,
-            "height": max(8, min(count * 15, 100)),
-        })
+def _common_context(request):
+    user = request.user
+    portal_role = get_platform_role(user)
+    tasker_profile = _tasker_profile(user)
+    tasker_application = getattr(user, "tasker_application", None)
+    manager_profile = _manager_profile(user)
 
     return {
         "portal_role": portal_role,
-        "sub_info": sub_info,
-        "analytics": analytics,
-        "recent_activities": recent_activities,
-        "usage_chart": usage_chart,
-        "is_tasker_gate_open": can_receive_work(_tasker_profile(user)),
-        "tasker_gate": _tasker_gate(getattr(user, "tasker_application", None)),
-        "tasker_profile": _tasker_profile(user),
-        "manager_profile": _manager_profile(user),
+        "sub_info": _subscription_snapshot(user),
         "notifications": TaskNotification.objects.filter(recipient=user).select_related("task")[:6],
+        "tasker_profile": tasker_profile,
+        "manager_profile": manager_profile,
+        "tasker_gate": {
+            "application_status": tasker_application.status,
+            "trust_score": tasker_application.trust_score,
+            "manual_review_required": tasker_application.manual_review_required,
+            "is_ready": tasker_application.status == TaskerApplication.Status.APPROVED,
+        }
+        if tasker_application
+        else None,
+        "tasker_portal_ready": bool(tasker_profile and can_receive_work(tasker_profile)),
     }
 
 
 def _student_context(request):
-    tasks = TaskOrder.objects.filter(student=request.user).select_related(
-        "category",
-        "competency_area",
-        "assigned_tasker",
-    ).prefetch_related("match_suggestions", "submissions")
-    open_count = tasks.filter(status__in=[TaskOrder.Status.DRAFT, TaskOrder.Status.OPEN]).count()
-    active_count = tasks.filter(status__in=[TaskOrder.Status.ASSIGNED, TaskOrder.Status.IN_PROGRESS, TaskOrder.Status.QUALITY_REVIEW, TaskOrder.Status.REVISION]).count()
-    completed_count = tasks.filter(status=TaskOrder.Status.COMPLETED).count()
-    spend_total = tasks.filter(status=TaskOrder.Status.COMPLETED).aggregate(total=models.Sum("budget_cents"))["total"] or 0
-    match_suggestions = TaskMatchSuggestion.objects.filter(task__student=request.user).select_related("task", "tasker__user").order_by("-score")[:6]
+    tasks = (
+        TaskOrder.objects.filter(student=request.user)
+        .select_related("category", "competency_area", "assigned_tasker", "region_preference")
+        .prefetch_related("submissions", "match_suggestions")
+        .order_by("-created_at")
+    )
+    focus_task = tasks.first()
+    focus_subject = request.GET.get("subject", "").strip() or (focus_task.subject if focus_task else "")
+    if not focus_subject:
+        focus_subject = "Academic writing"
+
+    active_statuses = [
+        TaskOrder.Status.DRAFT,
+        TaskOrder.Status.OPEN,
+        TaskOrder.Status.ASSIGNED,
+        TaskOrder.Status.IN_PROGRESS,
+        TaskOrder.Status.QUALITY_REVIEW,
+        TaskOrder.Status.REVISION,
+        TaskOrder.Status.ESCALATED,
+    ]
+    summary = {
+        "total_tasks": tasks.count(),
+        "open_tasks": tasks.filter(status__in=[TaskOrder.Status.DRAFT, TaskOrder.Status.OPEN]).count(),
+        "active_tasks": tasks.filter(status__in=active_statuses[2:]).count(),
+        "completed_tasks": tasks.filter(status=TaskOrder.Status.COMPLETED).count(),
+        "flagged_tasks": tasks.filter(status=TaskOrder.Status.ESCALATED).count(),
+    }
+
     return {
-        "student_tasks": tasks.order_by("-created_at")[:8],
-        "student_summary": {
-            "open": open_count,
-            "active": active_count,
-            "completed": completed_count,
-            "spend_total": spend_total,
-        },
-        "student_suggestions": match_suggestions,
+        "student_tasks": tasks[:8],
+        "student_summary": summary,
+        "student_subject_focus": focus_subject,
+        "student_recommended_taskers": recommend_taskers_for_subject(focus_subject),
     }
 
 
@@ -144,39 +114,72 @@ def _tasker_context(request):
     if not tasker:
         return {
             "tasker_tasks": [],
-            "tasker_suggestions": [],
-            "tasker_snapshots": [],
-            "tasker_readiness": 0,
+            "tasker_recommendation_rows": [],
+            "tasker_competencies": [],
+            "tasker_summary": {},
+            "tasker_portal_ready": False,
         }
-    tasks = TaskOrder.objects.filter(assigned_tasker=tasker).select_related("student", "category", "region_preference").order_by("-created_at")
-    suggestions = TaskMatchSuggestion.objects.filter(tasker=tasker).select_related("task", "task__student").order_by("-score")[:6]
-    snapshots = TaskerPerformanceSnapshot.objects.filter(tasker=tasker).select_related("region").order_by("-period_end")[:6]
-    readiness = tasker.trust_score
+
+    tasks = (
+        TaskOrder.objects.filter(assigned_tasker=tasker)
+        .select_related("student", "category", "region_preference")
+        .order_by("-created_at")
+    )
+    metrics = {
+        "trust_score": tasker.trust_score,
+        "quality_score": tasker.quality_score,
+        "completed_assignments": tasker.completed_assignments,
+        "on_time_delivery_rate": tasker.on_time_delivery_rate,
+        "current_workload_hours": tasker.current_workload_hours,
+    }
     return {
         "tasker_tasks": tasks[:8],
-        "tasker_suggestions": suggestions,
-        "tasker_snapshots": snapshots,
-        "tasker_readiness": readiness,
+        "tasker_recommendation_rows": recommend_task_rows_for_tasker(tasker),
+        "tasker_competencies": tasker.competency_areas.all(),
+        "tasker_summary": metrics,
+        "tasker_portal_ready": can_receive_work(tasker),
     }
 
 
 def _manager_context(request):
     manager = _manager_profile(request.user)
-    if not manager:
-        regions = Region.objects.none()
-        escalations = EscalationCase.objects.none()
-        snapshots = TaskerPerformanceSnapshot.objects.none()
-        tasks = TaskOrder.objects.none()
-    else:
-        regions = manager.regions.filter(active=True)
-        escalations = EscalationCase.objects.filter(region__in=regions).select_related("task", "assigned_manager", "region").order_by("-opened_at")[:8]
-        snapshots = TaskerPerformanceSnapshot.objects.filter(region__in=regions).select_related("tasker", "region").order_by("-period_end")[:8]
-        tasks = TaskOrder.objects.filter(region_preference__in=regions).select_related("student", "assigned_tasker", "category", "region_preference").order_by("-created_at")[:8]
+    regions = manager.regions.filter(active=True) if manager else Region.objects.filter(active=True)
+    if manager and not regions.exists():
+        regions = Region.objects.filter(active=True)
+
+    escalation_qs = EscalationCase.objects.filter(region__in=regions)
+    escalations = (
+        escalation_qs
+        .select_related("task", "assigned_manager", "region", "opened_by")
+        .order_by("-opened_at")[:8]
+    )
+
+    low_accuracy_qs = TaskerProfile.objects.filter(ratings__isnull=False)
+    low_accuracy_taskers = (
+        low_accuracy_qs
+        .annotate(
+            avg_accuracy=Avg("ratings__accuracy_rating"),
+            avg_overall=Avg("ratings__overall_rating"),
+            rating_count=Count("ratings"),
+        )
+        .filter(avg_accuracy__lt=3.0)
+        .select_related("user", "home_region")
+        .prefetch_related("competency_areas")
+        .order_by("avg_accuracy", "user__username")[:8]
+    )
+
+    summary = {
+        "regions": regions.count(),
+        "escalations": escalation_qs.count(),
+        "open_escalations": escalation_qs.filter(status=EscalationCase.Status.OPEN).count(),
+        "flagged_taskers": low_accuracy_qs.annotate(avg_accuracy=Avg("ratings__accuracy_rating")).filter(avg_accuracy__lt=3.0).count(),
+    }
+
     return {
         "manager_regions": regions,
         "manager_escalations": escalations,
-        "manager_snapshots": snapshots,
-        "manager_tasks": tasks,
+        "manager_low_accuracy_taskers": low_accuracy_taskers,
+        "manager_summary": summary,
     }
 
 
@@ -189,22 +192,35 @@ def _admin_context():
             TaskerApplication.Status.UNDER_REVIEW,
         ]
     ).select_related("applicant", "region_preference")
-    open_tasks = TaskOrder.objects.filter(status__in=[TaskOrder.Status.OPEN, TaskOrder.Status.ASSIGNED, TaskOrder.Status.IN_PROGRESS, TaskOrder.Status.QUALITY_REVIEW, TaskOrder.Status.REVISION])
-    escalations = EscalationCase.objects.select_related("task", "region", "assigned_manager").order_by("-opened_at")[:8]
-    snapshots = TaskerPerformanceSnapshot.objects.select_related("tasker", "region").order_by("-period_end")[:8]
+
+    open_tasks = TaskOrder.objects.filter(
+        status__in=[
+            TaskOrder.Status.OPEN,
+            TaskOrder.Status.ASSIGNED,
+            TaskOrder.Status.IN_PROGRESS,
+            TaskOrder.Status.QUALITY_REVIEW,
+            TaskOrder.Status.REVISION,
+            TaskOrder.Status.ESCALATED,
+        ]
+    )
+
     return {
         "admin_applications": pending_applications[:8],
         "admin_open_tasks": open_tasks[:8],
         "admin_open_count": open_tasks.count(),
-        "admin_escalations": escalations,
-        "admin_snapshots": snapshots,
         "admin_completion_count": TaskOrder.objects.filter(status=TaskOrder.Status.COMPLETED).count(),
-        "admin_revenue_total": TaskOrder.objects.filter(status=TaskOrder.Status.COMPLETED).aggregate(total=models.Sum("budget_cents"))["total"] or 0,
+        "admin_low_accuracy_taskers": (
+            TaskerProfile.objects.filter(ratings__isnull=False)
+            .annotate(avg_accuracy=Avg("ratings__accuracy_rating"), avg_overall=Avg("ratings__overall_rating"), rating_count=Count("ratings"))
+            .filter(avg_accuracy__lt=3.0)
+            .select_related("user")
+            .order_by("avg_accuracy")[:8]
+        ),
     }
 
 
 def _dashboard_context(request, forced_role=None):
-    context = _collect_common_context(request)
+    context = _common_context(request)
     role = forced_role or context["portal_role"]
     context["portal_role"] = role
     context["portal_label"] = {
@@ -212,13 +228,13 @@ def _dashboard_context(request, forced_role=None):
         "tasker": "Tasker Portal",
         "manager": "Manager Portal",
         "admin": "Admin Command Center",
-    }.get(role, "Marketplace Portal")
+    }.get(role, "Assignment Portal")
     context["portal_tagline"] = {
-        "student": "Create, track, and manage academic tasks.",
-        "tasker": "Track your trust gate, queues, and performance.",
-        "manager": "Oversee regional operations and escalations.",
-        "admin": "Monitor the entire marketplace from one control surface.",
-    }.get(role, "Marketplace overview.")
+        "student": "Create assignments and view the best writers for each subject.",
+        "tasker": "Track your queue, quality, and assigned assignments.",
+        "manager": "Resolve disputes, review taskers, and manage quality issues.",
+        "admin": "Monitor the platform from one control surface.",
+    }.get(role, "Assignment workflow")
 
     if role == "student":
         context.update(_student_context(request))
@@ -234,24 +250,31 @@ def _dashboard_context(request, forced_role=None):
 
 @login_required
 def dashboard_view(request):
-    return render(request, "dashboard/main.html", _dashboard_context(request))
+    return redirect(portal_url_for_user(request.user))
 
 
+@require_student
 @login_required
 def student_dashboard_view(request):
     return render(request, "dashboard/main.html", _dashboard_context(request, "student"))
 
 
+@require_tasker
 @login_required
 def tasker_dashboard_view(request):
+    tasker = _tasker_profile(request.user)
+    if not can_receive_work(tasker):
+        return redirect("trust:onboarding")
     return render(request, "dashboard/main.html", _dashboard_context(request, "tasker"))
 
 
+@require_manager
 @login_required
 def manager_dashboard_view(request):
     return render(request, "dashboard/main.html", _dashboard_context(request, "manager"))
 
 
+@require_admin
 @login_required
 def admin_dashboard_view(request):
     return render(request, "dashboard/main.html", _dashboard_context(request, "admin"))

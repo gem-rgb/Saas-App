@@ -6,7 +6,7 @@
           </div>
           <div>
             <span class="brand-font block text-lg font-semibold text-slate-900 dark:text-white">Academy Grid</span>
-            <span class="block text-xs uppercase tracking-[0.25em] text-slate-500">Academic Task Marketplace</span>
+            <span class="block text-xs uppercase tracking-[0.25em] text-slate-500">Academic Assignment Platform</span>
           </div>
       </a>
       <div class="flex items-center gap-2 md:order-2">
@@ -24,17 +24,31 @@
       <div class="hidden w-full md:block md:w-auto md:order-1" id="navbar-default">
         <ul class="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm font-medium md:flex-row md:items-center md:gap-6 md:border-0 md:bg-transparent md:p-0 dark:border-slate-800 dark:bg-slate-900 md:dark:bg-transparent">
           {% if request.user.is_authenticated %}
-          <li><a href="{% url 'dashboard:portal-home' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Portal</a></li>
-          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Marketplace</a></li>
+          <li><a href="{{ portal_dashboard_url }}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Portal</a></li>
+          {% if portal_role == "student" %}
+          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">My Assignments</a></li>
+          {% elif portal_role == "tasker" %}
+          {% if tasker_portal_ready %}
+          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignment Queue</a></li>
+          {% else %}
+          <li><a href="{{ tasker_onboarding_url }}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Onboarding</a></li>
+          {% endif %}
           <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
-          {% if request.user.is_staff %}
+          {% elif portal_role == "manager" %}
+          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignments</a></li>
+          <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
           <li><a href="{% url 'operations:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Operations</a></li>
-          <li><a href="{% url 'analytics_dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Analytics</a></li>
+          <li><a href="{% url 'analytics_dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignment Insights</a></li>
+          {% else %}
+          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignments</a></li>
+          <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
+          <li><a href="{% url 'operations:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Operations</a></li>
+          <li><a href="{% url 'analytics_dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignment Insights</a></li>
           {% endif %}
           <li><a href="{% url 'account_logout' %}" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-white dark:bg-slate-100 dark:text-slate-900">Logout</a></li>
           {% else %}
           <li><a href="{% url 'home' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Home</a></li>
-          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Marketplace</a></li>
+          <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignments</a></li>
           <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
           <li><a href="{% url 'pricing' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Pricing</a></li>
           <li><a href="{% url 'contact' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Contact</a></li>

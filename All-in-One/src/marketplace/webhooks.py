@@ -45,13 +45,15 @@ def paystack_webhook_view(request):
                 # Update task status to posted if it's still in draft
                 task = payment.task
                 if task.status == "draft":
-                    task.status = "posted"
+                    task.status = task.Status.OPEN
                     task.save()
                     TaskStatusEvent.objects.create(
                         task=task,
                         actor=task.student,
-                        status="posted",
-                        notes="Payment authorized via Paystack"
+                        previous_status=task.Status.DRAFT,
+                        new_status=task.Status.OPEN,
+                        actor_role="system",
+                        note="Payment authorized via Paystack",
                     )
         except TaskPayment.DoesNotExist:
             pass

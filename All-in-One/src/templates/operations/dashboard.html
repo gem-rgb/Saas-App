@@ -20,7 +20,7 @@
         </div>
 
         <!-- High-Level Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
                 <div class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Active Regions</div>
                 <div class="text-3xl font-bold text-slate-900 dark:text-white">{{ summary.regions }}</div>
@@ -36,6 +36,10 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-amber-200 dark:border-amber-900/50 p-6 shadow-sm">
                 <div class="text-sm font-medium text-amber-500 dark:text-amber-400 mb-1">Quality Audits</div>
                 <div class="text-3xl font-bold text-amber-600 dark:text-amber-500">{{ summary.tasks_under_review }}</div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 rounded-2xl border border-cyan-200 dark:border-cyan-900/50 p-6 shadow-sm">
+                <div class="text-sm font-medium text-cyan-500 dark:text-cyan-400 mb-1">Flagged Taskers</div>
+                <div class="text-3xl font-bold text-cyan-600 dark:text-cyan-500">{{ summary.flagged_taskers }}</div>
             </div>
         </div>
 
@@ -57,14 +61,15 @@
                             <thead>
                                 <tr>
                                     <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Task</th>
-                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Region</th>
-                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                                    <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Priority</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-                                {% for esc in escalations %}
-                                <tr>
+                            <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Region</th>
+                            <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Priority</th>
+                            <th scope="col" class="py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                        {% for esc in escalations %}
+                        <tr>
                                     <td class="py-4 text-sm font-medium text-slate-900 dark:text-white">{{ esc.task.title }}</td>
                                     <td class="py-4 text-sm text-slate-500 dark:text-slate-400">
                                         <a href="{% url 'operations:region_dashboard' esc.region.code %}" class="text-indigo-600 dark:text-indigo-400 hover:underline">{{ esc.region.name }}</a>
@@ -78,6 +83,14 @@
                                         </span>
                                     </td>
                                     <td class="py-4 text-sm text-slate-500 dark:text-slate-400 capitalize">{{ esc.priority }}</td>
+                                    <td class="py-4 text-sm">
+                                        <form action="{% url 'operations:resolve_escalation' esc.pk %}" method="post" class="flex flex-wrap gap-2">
+                                            {% csrf_token %}
+                                            <button name="action" value="resolve" class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">Resolve</button>
+                                            <button name="action" value="refund" class="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 dark:border-cyan-900/40 dark:bg-cyan-950/20 dark:text-cyan-300">Refund</button>
+                                            <button name="action" value="dismiss" class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Dismiss</button>
+                                        </form>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -124,6 +137,25 @@
                         </div>
                         {% empty %}
                             <p class="text-sm text-slate-500">No recent quality audits.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                    <h2 class="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4 mb-4">Flagged Taskers</h2>
+                    <div class="space-y-4">
+                        {% for tasker in low_accuracy_taskers %}
+                        <div class="rounded-xl border border-slate-100 dark:border-slate-700 p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <div class="font-semibold text-slate-900 dark:text-white">{{ tasker.user.username }}</div>
+                                    <div class="text-xs text-slate-500 mt-1">Accuracy {{ tasker.avg_accuracy|floatformat:1 }} | Quality {{ tasker.avg_overall|floatformat:1 }}</div>
+                                </div>
+                                <a href="{% url 'operations:tasker_performance' tasker.id %}" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Manage</a>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-sm text-slate-500">No taskers are currently flagged.</p>
                         {% endfor %}
                     </div>
                 </div>

@@ -39,6 +39,9 @@ class AssignmentAdmin(admin.ModelAdmin):
         ('Budget & ML', {
             'fields': ('budget_cents', 'ml_match_score')
         }),
+        ('Verification', {
+            'fields': ('verification_rubric',)
+        }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at')
         }),

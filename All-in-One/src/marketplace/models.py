@@ -139,6 +139,25 @@ class TaskOrder(models.Model):
     def __str__(self):
         return f"{self.title} ({self.get_status_display()})"
 
+    @property
+    def effective_budget_cents(self):
+        return self.budget_cents or self.pricing_suggestion_cents or 0
+
+    @property
+    def price_source_label(self):
+        if self.budget_cents:
+            return "Client budget"
+        if self.pricing_suggestion_cents:
+            return "AI estimated payout"
+        return "Unpriced"
+
+    @property
+    def display_price_label(self):
+        amount = self.effective_budget_cents / 100.0
+        if amount <= 0:
+            return "TBD"
+        return f"{self.currency} {amount:,.2f}"
+
     def publish(self):
         if self.status == self.Status.DRAFT:
             self.set_status(self.Status.OPEN, actor=self.student, actor_role="student", note="Published by student")
@@ -445,6 +464,21 @@ class TaskConversationMessage(models.Model):
 
     def __str__(self):
         return f"{self.channel} message @ {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class TaskConversationReadState(models.Model):
+    task = models.ForeignKey(TaskOrder, on_delete=models.CASCADE, related_name="conversation_read_states")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="task_conversation_read_states")
+    last_read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        unique_together = ("task", "user")
+
+    def __str__(self):
+        return f"{self.task.title} read state for {self.user}"
 
 
 class TaskNotification(models.Model):

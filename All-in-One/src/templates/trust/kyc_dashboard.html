@@ -17,7 +17,7 @@
 
         <div class="rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 shadow-xl overflow-hidden p-8">
             
-            {% if identity and identity.status == 'verified' %}
+            {% if identity and identity.status == 'approved' %}
                 <div class="text-center py-10">
                     <div class="mx-auto h-20 w-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
                         <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -36,6 +36,12 @@
             {% else %}
                 <form method="POST" enctype="multipart/form-data" class="space-y-8">
                     {% csrf_token %}
+
+                    {% if form.errors %}
+                    <div class="rounded-xl bg-red-50 p-4 border border-red-200">
+                        <div class="text-sm text-red-700">Please correct the errors below.</div>
+                    </div>
+                    {% endif %}
                     
                     <div class="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 mb-8">
                         <h4 class="font-bold text-indigo-900 dark:text-indigo-300 mb-2">Secure Upload</h4>
@@ -44,12 +50,19 @@
 
                     <div class="space-y-6">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Upload ID Document (Passport, Driver's License)</label>
-                            {{ form.document_image }}
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Upload selfie</label>
+                            {{ form.selfie_image }}
+                            {% if form.selfie_image.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.selfie_image.errors|striptags }}</p>{% endif %}
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Take a Selfie (For Liveness Check)</label>
-                            {{ form.selfie_image }}
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Upload government ID front</label>
+                            {{ form.id_front_image }}
+                            {% if form.id_front_image.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.id_front_image.errors|striptags }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Upload government ID back</label>
+                            {{ form.id_back_image }}
+                            {% if form.id_back_image.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.id_back_image.errors|striptags }}</p>{% endif %}
                         </div>
                     </div>
 

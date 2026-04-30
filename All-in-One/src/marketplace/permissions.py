@@ -2,6 +2,8 @@ from functools import wraps
 
 from django.contrib.auth.decorators import user_passes_test
 
+from auth.permissions import get_user_role
+
 
 ROLE_GROUPS = {
     "student": "Student",
@@ -14,14 +16,11 @@ ROLE_GROUPS = {
 def get_platform_role(user):
     if not user or not user.is_authenticated:
         return "anonymous"
-    if user.is_superuser or user.is_staff:
-        return "admin"
-    if hasattr(user, "manager_profile") and getattr(user.manager_profile, "active", True):
-        return "manager"
-    if hasattr(user, "tasker_profile"):
-        profile = user.tasker_profile
-        if getattr(profile, "admin_approved", False) and getattr(profile, "kyc_status", "") == "approved":
-            return "tasker"
+
+    user_role = get_user_role(user)
+    if user_role:
+        return user_role.role_type
+
     return "student"
 
 
@@ -52,10 +51,11 @@ def can_receive_work(tasker):
     return all(
         [
             getattr(tasker, "is_active_tasker", False),
+            getattr(tasker, "approval_status", "") == "approved",
             getattr(tasker, "admin_approved", False),
             getattr(tasker, "kyc_status", "") == "approved",
             getattr(tasker, "competency_status", "") in {"verified", "approved"},
             getattr(tasker, "interview_status", "") in {"passed", "approved"},
+            getattr(tasker, "competency_areas", None) is not None and tasker.competency_areas.exists(),
         ]
     )
-
