@@ -1,4 +1,4 @@
-# ⚡ SaaS Platform
+# ⚡ All-in-One Platform
 
 > A production-ready SaaS foundation built with Django 5, Tailwind CSS, Stripe, and ML-powered analytics. Ship your subscription business in days, not months.
 
