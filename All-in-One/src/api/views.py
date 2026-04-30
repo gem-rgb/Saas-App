@@ -245,14 +245,16 @@ def operations_overview_view(request):
 @permission_classes([IsAuthenticated])
 def notification_mark_read_view(request):
     """Mark a single notification as read."""
-    from rest_framework import status
     notif_id = request.data.get('id')
     if not notif_id:
         return Response({"detail": "Notification ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
         notif = TaskNotification.objects.get(pk=notif_id, recipient=request.user)
-        notif.is_read = True
-        notif.save(update_fields=['is_read'])
-        return Response({"status": "ok", "message": "Notification dismissed."})
     except TaskNotification.DoesNotExist:
         return Response({"detail": "Notification not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    notif.is_read = True
+    notif.save(update_fields=['is_read'])
+    return Response({"status": "ok", "message": "Notification dismissed."})
+
