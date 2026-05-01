@@ -16,6 +16,7 @@ from marketplace.models import (
     TaskPayment,
 )
 from marketplace.permissions import can_receive_work, get_platform_role
+from subscriptions.utils import subscription_matching_mode
 
 
 def _tokenize(value):
@@ -23,6 +24,67 @@ def _tokenize(value):
         return set()
     normalized = value.replace("/", " ").replace("-", " ").replace(",", " ")
     return {token.strip().lower() for token in normalized.split() if token.strip()}
+
+
+def _task_matching_mode(task):
+    student = getattr(task, "student", None)
+    if student is None:
+        return "standard"
+    return subscription_matching_mode(student)
+
+
+def _task_matching_preferences(matching_mode):
+    normalized_mode = (matching_mode or "standard").strip().lower()
+    if normalized_mode == "priority":
+        return {
+            "competency": 0.28,
+            "trust": 0.22,
+            "quality": 0.18,
+            "speed": 0.09,
+            "reliability": 0.11,
+            "workload": 0.10,
+            "region": 0.02,
+            "deadline": 0.02,
+            "fraud": 0.05,
+            "revision": 0.03,
+            "minimum_score": 0.30,
+            "assignment_threshold": 0.50,
+        }
+    return {
+        "competency": 0.30,
+        "trust": 0.18,
+        "quality": 0.15,
+        "speed": 0.10,
+        "reliability": 0.10,
+        "workload": 0.10,
+        "region": 0.04,
+        "deadline": 0.03,
+        "fraud": 0.06,
+        "revision": 0.04,
+        "minimum_score": 0.35,
+        "assignment_threshold": 0.55,
+    }
+
+
+def _subject_matching_preferences(matching_mode):
+    normalized_mode = (matching_mode or "standard").strip().lower()
+    if normalized_mode == "priority":
+        return {
+            "overlap": 0.40,
+            "trust": 0.22,
+            "quality": 0.18,
+            "reliability": 0.12,
+            "workload": 0.08,
+            "minimum_score": 0.22,
+        }
+    return {
+        "overlap": 0.45,
+        "trust": 0.20,
+        "quality": 0.15,
+        "reliability": 0.10,
+        "workload": 0.10,
+        "minimum_score": 0.25,
+    }
 
 
 def _task_domain_premium(task):
@@ -126,7 +188,7 @@ def build_task_estimate(task):
     return task.ai_estimate
 
 
-def rank_taskers(task, taskers=None, top_n=5):
+def rank_taskers(task, taskers=None, top_n=5, matching_mode="standard"):
     from assignments.models import TaskerProfile
 
     if taskers is None:
@@ -136,6 +198,7 @@ def rank_taskers(task, taskers=None, top_n=5):
             kyc_status="approved",
         ).select_related("home_region", "source_application").prefetch_related("competency_areas")
 
+    preferences = _task_matching_preferences(matching_mode)
     task_tokens = _tokenize(task.subject) | _tokenize(task.title)
     if task.category:
         task_tokens |= _tokenize(task.category.name)
@@ -184,20 +247,20 @@ def rank_taskers(task, taskers=None, top_n=5):
         revision_penalty = max(0.0, min(1.0, getattr(tasker, "revision_frequency", 0.0) / 100.0))
 
         score = (
-            competency_score * 0.30
-            + trust_score * 0.18
-            + quality_score * 0.15
-            + speed_score * 0.10
-            + reliability_score * 0.10
-            + workload_score * 0.10
-            + region_score * 0.04
-            + deadline_score * 0.03
-            - fraud_penalty * 0.06
-            - revision_penalty * 0.04
+            competency_score * preferences["competency"]
+            + trust_score * preferences["trust"]
+            + quality_score * preferences["quality"]
+            + speed_score * preferences["speed"]
+            + reliability_score * preferences["reliability"]
+            + workload_score * preferences["workload"]
+            + region_score * preferences["region"]
+            + deadline_score * preferences["deadline"]
+            - fraud_penalty * preferences["fraud"]
+            - revision_penalty * preferences["revision"]
         )
         score = max(0.0, min(1.0, score))
 
-        if score < 0.35:
+        if score < preferences["minimum_score"]:
             continue
 
         confidence = max(0.0, min(1.0, score + (competency_score * 0.08)))
@@ -408,7 +471,7 @@ def recommend_task_rows_for_tasker(tasker, task_queryset=None, max_rows=3, row_s
     return rows[:max_rows]
 
 
-def recommend_taskers_for_subject(subject, taskers=None, top_n=6):
+def recommend_taskers_for_subject(subject, taskers=None, top_n=6, matching_mode="standard"):
     from assignments.models import TaskerProfile
 
     if not subject:
@@ -427,6 +490,7 @@ def recommend_taskers_for_subject(subject, taskers=None, top_n=6):
             .prefetch_related("competency_areas")
         )
 
+    preferences = _subject_matching_preferences(matching_mode)
     subject_tokens = _tokenize(subject)
     recommendations = []
 
@@ -450,14 +514,14 @@ def recommend_taskers_for_subject(subject, taskers=None, top_n=6):
         workload_score = min(1.0, workload_headroom / 20.0)
 
         score = (
-            overlap_score * 0.45
-            + trust_score * 0.20
-            + quality_score * 0.15
-            + reliability_score * 0.10
-            + workload_score * 0.10
+            overlap_score * preferences["overlap"]
+            + trust_score * preferences["trust"]
+            + quality_score * preferences["quality"]
+            + reliability_score * preferences["reliability"]
+            + workload_score * preferences["workload"]
         )
 
-        if score < 0.25:
+        if score < preferences["minimum_score"]:
             continue
 
         specialty_names = [area.name for area in tasker.competency_areas.all()[:4]]
@@ -480,7 +544,10 @@ def recommend_taskers_for_subject(subject, taskers=None, top_n=6):
 
 @transaction.atomic
 def auto_assign_task(task, actor=None, top_n=5, force=False):
-    matches = rank_taskers(task, top_n=top_n)
+    matching_mode = _task_matching_mode(task)
+    preferences = _task_matching_preferences(matching_mode)
+    rank_limit = max(top_n, 6) if matching_mode == "priority" else top_n
+    matches = rank_taskers(task, top_n=rank_limit, matching_mode=matching_mode)
     created_suggestions = []
 
     for match in matches:
@@ -503,7 +570,7 @@ def auto_assign_task(task, actor=None, top_n=5, force=False):
         )
         created_suggestions.append(suggestion)
 
-    if matches and (force or matches[0]["score"] >= 0.55):
+    if matches and (force or matches[0]["score"] >= preferences["assignment_threshold"]):
         winner = matches[0]
         task.assign_tasker(
             winner["tasker"],
@@ -646,11 +713,20 @@ def log_audit(actor, event_type, task=None, entity_type="task", entity_id="", pa
     )
 
 
-def release_payment(task, provider_reference="", amount_cents=None):
-    payment = task.payments.order_by("-created_at").first()
+def release_payment(task, provider_reference="", amount_cents=None, payment=None, payment_id=None, payment_kind=None):
+    payment_kind = payment_kind or getattr(payment, "payment_kind", None)
+    if payment is None:
+        payment_qs = task.payments.order_by("-created_at")
+        if payment_id is not None:
+            payment = payment_qs.filter(pk=payment_id).first()
+        elif payment_kind is not None:
+            payment = payment_qs.filter(payment_kind=payment_kind).first()
+        else:
+            payment = payment_qs.first()
     if payment is None:
         payment = TaskPayment.objects.create(
             task=task,
+            payment_kind=payment_kind or TaskPayment.PaymentKind.TASK,
             amount_cents=amount_cents or task.effective_budget_cents or 0,
             provider_reference=provider_reference,
             status=TaskPayment.Status.RELEASED,
@@ -663,7 +739,10 @@ def release_payment(task, provider_reference="", amount_cents=None):
         payment.escrow_status = "released"
         payment.provider_reference = provider_reference or payment.provider_reference
         payment.released_at = timezone.now()
-        payment.save(update_fields=["status", "escrow_status", "provider_reference", "released_at", "updated_at"])
-    task.payment_status = TaskOrder.PaymentStatus.RELEASED
-    task.save(update_fields=["payment_status", "updated_at"])
+        payment.save(update_fields=["status", "escrow_status", "provider_reference", "released_at"])
+
+    resolved_payment_kind = payment_kind or getattr(payment, "payment_kind", TaskPayment.PaymentKind.TASK)
+    if resolved_payment_kind == TaskPayment.PaymentKind.TASK:
+        task.payment_status = TaskOrder.PaymentStatus.RELEASED
+        task.save(update_fields=["payment_status", "updated_at"])
     return payment

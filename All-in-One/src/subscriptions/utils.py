@@ -3,6 +3,12 @@ from customers.models import Customer
 from subscriptions.models import Subscription, UserSubscription, SubscriptionStatus
 
 
+def _user_subscription(user):
+    if not user or not user.is_authenticated:
+        return None
+    return UserSubscription.objects.filter(user=user).select_related("subscription").first()
+
+
 def refresh_active_users_subscriptions(
         user_ids=None, 
         active_only=True,
@@ -55,13 +61,80 @@ def sync_subs_group_permissions():
 
 
 def subscription_has_feature(user, feature_code):
-    if not user or not user.is_authenticated:
-        return False
-    user_sub = UserSubscription.objects.filter(user=user).select_related("subscription").first()
+    user_sub = _user_subscription(user)
     return bool(user_sub and user_sub.has_feature(feature_code))
 
 
 def user_subscription_plan(user):
-    if not user or not user.is_authenticated:
+    return _user_subscription(user)
+
+
+def subscription_feature_limit(user, limit_code):
+    user_sub = _user_subscription(user)
+    if not user_sub or not user_sub.subscription:
         return None
-    return UserSubscription.objects.filter(user=user).select_related("subscription").first()
+    return user_sub.subscription.get_feature_limit(limit_code)
+
+
+def subscription_active_task_limit(user):
+    return subscription_feature_limit(user, "active_tasks")
+
+
+def subscription_turnaround_hours(user):
+    return subscription_feature_limit(user, "turnaround_hours")
+
+
+def subscription_analytics_access_level(user):
+    user_sub = _user_subscription(user)
+    if not user_sub or not user_sub.subscription:
+        return 0
+    return user_sub.analytics_tier
+
+
+def subscription_support_channel(user):
+    user_sub = _user_subscription(user)
+    if not user_sub:
+        return "email"
+    return user_sub.support_channel
+
+
+def subscription_matching_mode(user):
+    if subscription_has_feature(user, "priority_matching"):
+        return "priority"
+    if subscription_has_feature(user, "premium_sessions"):
+        return "priority"
+    if subscription_has_feature(user, "standard_matching"):
+        return "standard"
+    return "standard"
+
+
+def subscription_session_mode(user):
+    if subscription_has_feature(user, "premium_sessions"):
+        return "premium"
+    return "standard"
+
+
+def student_active_task_count(user):
+    if not user or not user.is_authenticated:
+        return 0
+
+    from marketplace.models import TaskOrder
+
+    return TaskOrder.objects.filter(
+        student=user,
+        status__in=[
+            TaskOrder.Status.OPEN,
+            TaskOrder.Status.ASSIGNED,
+            TaskOrder.Status.IN_PROGRESS,
+            TaskOrder.Status.QUALITY_REVIEW,
+            TaskOrder.Status.REVISION,
+            TaskOrder.Status.ESCALATED,
+        ],
+    ).count()
+
+
+def can_publish_task(user):
+    limit = subscription_active_task_limit(user)
+    if limit is None:
+        return True
+    return student_active_task_count(user) < limit

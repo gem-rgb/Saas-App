@@ -17,7 +17,7 @@ This is **not** another boilerplate. It's a fully wired, opinionated SaaS starte
 - ✅ Subscription billing with Stripe (checkout, webhooks, cancellation)
 - ✅ ML-powered user analytics (churn prediction, health scoring)
 - ✅ REST API with Django REST Framework
-- ✅ Auth with social login (GitHub OAuth)
+- ✅ Auth with social login (GitHub + Google OAuth)
 - ✅ User profiles with avatar uploads
 - ✅ Dark mode, responsive UI, toast notifications
 - ✅ Contact form with database storage
@@ -65,7 +65,7 @@ pip install -r requirements.txt
 
 # 4. Configure
 cp .env.sample .env
-# Edit .env → set DJANGO_SECRET_KEY and optionally STRIPE_SECRET_KEY
+# Edit .env → set DJANGO_SECRET_KEY plus any OAuth/API keys you need (for example GOOGLE_CLIENT_ID/SECRET and STRIPE_SECRET_KEY)
 
 # 5. Migrate & run
 cd src
@@ -88,7 +88,7 @@ Open **http://127.0.0.1:8000/** — you should see a fully styled landing page.
 | Services | `/services/` | 6 service cards with gradient styling |
 | Pricing | `/pricing/` | Dynamic plans from database |
 | Contact | `/contact/` | Form → saved to DB |
-| Signup/Login | `/accounts/signup/` | django-allauth + GitHub OAuth |
+| Signup/Login | `/accounts/signup/` | django-allauth + GitHub/Google OAuth |
 | Dashboard | `/` (logged in) | ML widgets, stats, activity chart |
 | Analytics | `/analytics/` | Full ML insights dashboard |
 | Billing | `/accounts/billing/` | Subscription details, cancel flow |
@@ -197,6 +197,10 @@ src/
 | `DATABASE_URL` | — | SQLite | Postgres connection string |
 | `STRIPE_SECRET_KEY` | — | — | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | — | — | Webhook signing secret |
+| `GITHUB_CLIENT_ID` | — | — | GitHub OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | — | — | GitHub OAuth client secret |
+| `GOOGLE_CLIENT_ID` | — | — | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | — | — | Google OAuth client secret |
 | `EMAIL_HOST_USER` | — | — | SMTP username |
 | `EMAIL_HOST_PASSWORD` | — | — | SMTP password |
 

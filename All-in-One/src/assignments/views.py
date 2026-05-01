@@ -15,6 +15,7 @@ from auth.permissions import get_user_role, require_any_role, require_student, r
 from agents.verification_service import run_assignment_verification
 from agents.rubric_utils import normalize_rubric
 from trust.models import TaskerApplication
+from subscriptions.utils import subscription_has_feature
 from .models import (
     Assignment,
     AssignmentFile,
@@ -46,6 +47,14 @@ def _assignment_queryset_for_user(user):
 
 def _assignment_verification_rubric(assignment):
     return normalize_rubric(assignment.verification_rubric if isinstance(assignment.verification_rubric, dict) else {})
+
+
+def _has_plagiarism_report_access(user):
+    user_role = get_user_role(user)
+    role_type = user_role.role_type if user_role else UserRole.RoleType.STUDENT
+    if role_type in {UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN}:
+        return True
+    return subscription_has_feature(user, "plagiarism_reports") or subscription_has_feature(user, "quality_reports")
 
 
 def _assignment_submission_verification_payload(submission):
@@ -191,8 +200,11 @@ class AssignmentDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         assignment = self.get_object()
+        user_role = get_user_role(self.request.user)
         context['files'] = assignment.files.all()
         context['assignment_verification_rubric'] = _assignment_verification_rubric(assignment)
+        context['plagiarism_report_access'] = _has_plagiarism_report_access(self.request.user)
+        context['portal_role'] = user_role.role_type if user_role else UserRole.RoleType.STUDENT
         context['submissions'] = [
             _enrich_submission_with_verification(submission)
             for submission in assignment.submissions.select_related("tasker__user", "verification").prefetch_related("verification__checks").all()
@@ -358,6 +370,10 @@ def _persist_submission_verification(submission):
         description=submission.assignment.description,
         required_skills=submission.assignment.required_skills,
         rubric=rubric,
+        author_id=submission.tasker.user_id,
+        submission_source="assignments",
+        source_object_id=submission.assignment_id,
+        submission_id=submission.id,
     )
 
     verification, _ = AssignmentVerification.objects.update_or_create(

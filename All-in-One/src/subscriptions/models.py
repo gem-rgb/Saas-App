@@ -1,4 +1,5 @@
 import datetime
+import re
 import helpers.paystack_billing
 from django.db import models
 from django.db.models import Q
@@ -21,6 +22,7 @@ SUBSCRIPTION_PERMISSIONS = [
 
 FEATURE_CODE_ALIASES = {
     "task_creation": {"task_creation", "task-creation", "assignment_creation", "assignment-creation"},
+    "standard_matching": {"standard_matching", "subject_recommendations", "subject-recommendations", "subject_based_recommendations", "subject-based-writer-recommendations", "subject-based-writer-suggestions", "assignment_recommendations"},
     "subject_recommendations": {
         "subject_recommendations",
         "subject-recommendations",
@@ -28,13 +30,18 @@ FEATURE_CODE_ALIASES = {
         "subject-based-writer-recommendations",
         "subject-based-writer-suggestions",
         "assignment_recommendations",
+        "standard_matching",
     },
     "task_tracking": {"task_tracking", "task-tracking", "assignment_tracking", "assignment-tracking"},
-    "basic_support": {"basic_support", "basic-support", "email-support"},
+    "basic_support": {"basic_support", "basic-support", "email-support", "email_support"},
+    "email_support": {"email_support", "email-support", "basic_support", "basic-support"},
     "live_marketplace": {"live_marketplace", "live-marketplace", "marketplace", "marketplace-access"},
     "priority_matching": {"priority_matching", "priority-matching"},
-    "task_chat": {"task_chat", "task-chat", "chat", "in-app-chat"},
-    "revision_requests": {"revision_requests", "revision-requests", "revision"},
+    "task_chat": {"task_chat", "task-chat", "chat", "in-app-chat", "live_chat_support"},
+    "live_chat_support": {"live_chat_support", "live-chat-support", "task_chat", "task-chat", "chat"},
+    "revision_requests": {"revision_requests", "revision-requests", "revision", "revision_guarantee", "unlimited_revisions"},
+    "revision_guarantee": {"revision_guarantee", "revision-guarantee", "revision_requests", "revision-requests", "unlimited_revisions"},
+    "unlimited_revisions": {"unlimited_revisions", "unlimited-revisions", "revision_requests", "revision-requests", "revision_guarantee"},
     "analytics_dashboard": {
         "analytics_dashboard",
         "analytics-dashboard",
@@ -43,11 +50,39 @@ FEATURE_CODE_ALIASES = {
         "assignment_insights",
         "assignment-insights",
         "analytics",
+        "basic_analytics",
+        "advanced_analytics",
+        "full_analytics_dashboard",
     },
-    "manager_console": {"manager_console", "manager-console", "operations", "operations-console"},
+    "basic_analytics": {"basic_analytics", "basic-analytics", "analytics_dashboard", "analytics-dashboard", "advanced_analytics", "full_analytics_dashboard"},
+    "advanced_analytics": {"advanced_analytics", "advanced-analytics", "analytics_dashboard", "analytics-dashboard", "basic_analytics", "full_analytics_dashboard"},
+    "full_analytics_dashboard": {"full_analytics_dashboard", "full-analytics-dashboard", "analytics_dashboard", "analytics-dashboard", "basic_analytics", "advanced_analytics"},
+    "manager_console": {"manager_console", "manager-console", "operations", "operations-console", "dedicated_manager"},
+    "dedicated_manager": {"dedicated_manager", "dedicated-manager", "manager_console", "manager-console"},
+    "premium_sessions": {
+        "premium_sessions",
+        "premium_session",
+        "premium-session",
+        "dedicated_sessions",
+        "dedicated_session",
+        "dedicated-session",
+        "dedicated_manager",
+        "dedicated-manager",
+        "exam_sessions",
+        "exam_session",
+        "exam-session",
+        "revision_sessions",
+        "revision_session",
+        "revision-session",
+        "teaching_sessions",
+        "teaching_session",
+        "teaching-session",
+    },
     "dispute_resolution": {"dispute_resolution", "dispute-resolution", "escalation_resolution", "escalation-resolution"},
     "refund_management": {"refund_management", "refund-management", "refunds", "refund-processing"},
-    "quality_reports": {"quality_reports", "quality-reports", "quality_analysis", "quality-analysis"},
+    "quality_reports": {"quality_reports", "quality-reports", "quality_analysis", "quality-analysis", "plagiarism_reports"},
+    "plagiarism_reports": {"plagiarism_reports", "plagiarism-reports", "quality_reports", "quality-reports"},
+    "priority_phone_support": {"priority_phone_support", "priority-phone-support"},
 }
 
 
@@ -55,6 +90,21 @@ def _normalize_feature_code(value):
     if value is None:
         return ""
     return slugify(str(value).strip()).replace("-", "_")
+
+
+def _feature_code_variants(feature_code):
+    requested_code = _normalize_feature_code(feature_code)
+    if not requested_code:
+        return set()
+
+    variants = {requested_code}
+    for canonical_code, aliases in FEATURE_CODE_ALIASES.items():
+        family_codes = {_normalize_feature_code(canonical_code)}
+        family_codes.update(_normalize_feature_code(alias) for alias in aliases)
+        if requested_code in family_codes:
+            variants.update(family_codes)
+
+    return {code for code in variants if code}
 
 
 # Create your models here.
@@ -98,6 +148,26 @@ class Subscription(models.Model):
             return []
         return [slugify(feature) for feature in self.get_features_as_list()]
 
+    def get_feature_limit(self, limit_code):
+        normalized_limit = _normalize_feature_code(limit_code)
+        if normalized_limit not in {"active_tasks", "turnaround_hours"}:
+            return None
+
+        for code in self.get_feature_codes():
+            normalized_code = _normalize_feature_code(code)
+            if normalized_limit == "active_tasks" and normalized_code.startswith("active_tasks_"):
+                value = normalized_code.removeprefix("active_tasks_")
+                if value == "unlimited":
+                    return None
+                if value.isdigit():
+                    return int(value)
+            if normalized_limit == "turnaround_hours" and normalized_code.startswith("turnaround_") and normalized_code.endswith("h"):
+                value = normalized_code.removeprefix("turnaround_").removesuffix("h")
+                if value.isdigit():
+                    return int(value)
+
+        return None
+
     def has_feature(self, feature_code):
         requested_code = _normalize_feature_code(feature_code)
         if not requested_code:
@@ -108,12 +178,15 @@ class Subscription(models.Model):
             for code in self.get_feature_codes()
             if _normalize_feature_code(code)
         }
-        candidate_codes = {requested_code}
-        candidate_codes.update(
-            _normalize_feature_code(code)
-            for code in FEATURE_CODE_ALIASES.get(requested_code, set())
-        )
-        return bool(available_codes.intersection(candidate_codes))
+        return bool(available_codes.intersection(_feature_code_variants(requested_code)))
+
+    @property
+    def active_task_limit(self):
+        return self.get_feature_limit("active_tasks")
+
+    @property
+    def turnaround_hours(self):
+        return self.get_feature_limit("turnaround_hours")
 
     def save(self, *args, **kwargs):
         # Paystack doesn't require a 'Product' wrapper like Stripe does.
@@ -302,6 +375,40 @@ class UserSubscription(models.Model):
             return None
         return self.subscription.name
 
+    @property
+    def active_task_limit(self):
+        if not self.subscription:
+            return None
+        return self.subscription.active_task_limit
+
+    @property
+    def turnaround_hours(self):
+        if not self.subscription:
+            return None
+        return self.subscription.turnaround_hours
+
+    @property
+    def analytics_tier(self):
+        if not self.subscription:
+            return 0
+        if self.subscription.has_feature("full_analytics_dashboard"):
+            return 3
+        if self.subscription.has_feature("advanced_analytics"):
+            return 2
+        if self.subscription.has_feature("basic_analytics") or self.subscription.has_feature("analytics_dashboard"):
+            return 1
+        return 0
+
+    @property
+    def support_channel(self):
+        if not self.subscription:
+            return "email"
+        if self.subscription.has_feature("priority_phone_support"):
+            return "phone"
+        if self.subscription.has_feature("live_chat_support") or self.subscription.has_feature("task_chat"):
+            return "chat"
+        return "email"
+
     def has_feature(self, feature_code):
         if not self.is_active_status or not self.subscription:
             return False
@@ -314,6 +421,10 @@ class UserSubscription(models.Model):
             "current_period_start": self.current_period_start,
             "current_period_end": self.current_period_end,
             "feature_codes": self.subscription.get_feature_codes() if self.subscription else [],
+            "active_task_limit": self.active_task_limit,
+            "turnaround_hours": self.turnaround_hours,
+            "analytics_tier": self.analytics_tier,
+            "support_channel": self.support_channel,
         }
 
     @property

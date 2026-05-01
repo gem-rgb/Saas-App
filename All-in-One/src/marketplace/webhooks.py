@@ -4,7 +4,9 @@ import hmac
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
-from marketplace.models import TaskPayment, TaskStatusEvent
+from django.utils import timezone
+
+from marketplace.models import TaskPayment, TaskPremiumSession, TaskStatusEvent
 
 @csrf_exempt
 def paystack_webhook_view(request):
@@ -40,6 +42,8 @@ def paystack_webhook_view(request):
             payment = TaskPayment.objects.get(provider_reference=reference)
             if payment.status == TaskPayment.Status.PENDING:
                 payment.status = TaskPayment.Status.AUTHORIZED
+                if payment.payment_kind == TaskPayment.PaymentKind.PREMIUM_SESSION:
+                    payment.escrow_status = "held"
                 payment.save()
                 
                 # Update task status to posted if it's still in draft
@@ -55,6 +59,18 @@ def paystack_webhook_view(request):
                         actor_role="system",
                         note="Payment authorized via Paystack",
                     )
+
+                if payment.payment_kind == TaskPayment.PaymentKind.PREMIUM_SESSION:
+                    session = getattr(payment, "premium_session", None)
+                    if session is None:
+                        session = TaskPremiumSession.objects.filter(payment=payment).first()
+                    if session and session.status in {
+                        TaskPremiumSession.Status.REQUESTED,
+                        TaskPremiumSession.Status.AWAITING_PAYMENT,
+                    }:
+                        session.status = TaskPremiumSession.Status.PAID
+                        session.paid_at = timezone.now()
+                        session.save(update_fields=["status", "paid_at", "updated_at"])
         except TaskPayment.DoesNotExist:
             pass
             

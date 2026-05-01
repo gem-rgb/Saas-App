@@ -395,6 +395,72 @@ class TaskRevisionRequest(models.Model):
         return f"Revision request for {self.submission}"
 
 
+class TaskPremiumSession(models.Model):
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        AWAITING_PAYMENT = "awaiting_payment", "Awaiting Payment"
+        PAID = "paid", "Paid"
+        COMPLETED = "completed", "Completed"
+        DECLINED = "declined", "Declined"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class SessionType(models.TextChoices):
+        TEACHING = "teaching", "Teaching"
+        REVISION = "revision", "Revision"
+        EXAM_PREP = "exam_prep", "Exam Prep"
+
+    task = models.ForeignKey(TaskOrder, on_delete=models.CASCADE, related_name="premium_sessions")
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name="premium_session_requests")
+    tasker = models.ForeignKey("assignments.TaskerProfile", on_delete=models.CASCADE, related_name="premium_session_requests")
+    session_type = models.CharField(max_length=32, choices=SessionType.choices, default=SessionType.TEACHING)
+    topic = models.CharField(max_length=180)
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    duration_minutes = models.PositiveIntegerField(
+        default=60,
+        validators=[MinValueValidator(15), MaxValueValidator(480)],
+    )
+    extra_fee_cents = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    currency = models.CharField(max_length=8, default="USD")
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.REQUESTED)
+    student_notes = models.TextField(blank=True, default="")
+    tasker_notes = models.TextField(blank=True, default="")
+    payment = models.OneToOneField(
+        "TaskPayment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="premium_session",
+    )
+    provider_reference = models.CharField(max_length=140, blank=True, default="")
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    declined_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.task.title} premium session ({self.get_status_display()})"
+
+    @property
+    def display_fee_label(self):
+        amount = (self.extra_fee_cents or 0) / 100.0
+        if amount <= 0:
+            return "TBD"
+        return f"{self.currency} {amount:,.2f}"
+
+    @property
+    def checkout_url(self):
+        payment = self.payment
+        metadata = payment.metadata if payment and isinstance(payment.metadata, dict) else {}
+        return metadata.get("authorization_url", "")
+
+
 class TaskRating(models.Model):
     task = models.ForeignKey(TaskOrder, on_delete=models.CASCADE, related_name="ratings")
     tasker = models.ForeignKey("assignments.TaskerProfile", on_delete=models.CASCADE, related_name="ratings")
@@ -415,6 +481,10 @@ class TaskRating(models.Model):
 
 
 class TaskPayment(models.Model):
+    class PaymentKind(models.TextChoices):
+        TASK = "task", "Task"
+        PREMIUM_SESSION = "premium_session", "Premium Session"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         AUTHORIZED = "authorized", "Authorized"
@@ -424,6 +494,7 @@ class TaskPayment(models.Model):
         FAILED = "failed", "Failed"
 
     task = models.ForeignKey(TaskOrder, on_delete=models.CASCADE, related_name="payments")
+    payment_kind = models.CharField(max_length=32, choices=PaymentKind.choices, default=PaymentKind.TASK)
     amount_cents = models.PositiveIntegerField(default=0)
     currency = models.CharField(max_length=8, default="USD")
     provider = models.CharField(max_length=40, default="paystack")
@@ -440,7 +511,7 @@ class TaskPayment(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.task.title} payment ({self.status})"
+        return f"{self.task.title} {self.get_payment_kind_display().lower()} payment ({self.status})"
 
 
 class TaskConversationMessage(models.Model):

@@ -139,12 +139,16 @@ def portal_url_for_user(user):
     if role_type == UserRole.RoleType.TASKER:
         tasker_profile = getattr(user, "tasker_profile", None)
         application = getattr(user, "tasker_application", None)
-        if application is None or application.status != "approved":
+        if tasker_profile is None:
             return reverse("trust:onboarding")
 
-        from marketplace.permissions import can_receive_work
+        from marketplace.permissions import can_receive_work, tasker_has_active_work
 
-        if not can_receive_work(tasker_profile):
+        has_active_work = tasker_has_active_work(tasker_profile)
+        if application is None or application.status != "approved":
+            return portal_url_for_role(role_type) if has_active_work else reverse("trust:onboarding")
+
+        if not can_receive_work(tasker_profile) and not has_active_work:
             return reverse("trust:onboarding")
     return portal_url_for_role(role_type)
 

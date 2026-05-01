@@ -176,42 +176,96 @@
                                 <p class="mt-2 whitespace-pre-wrap text-sm text-emerald-900 dark:text-emerald-100">{{ verification.summary|default:sub.summary }}</p>
                                 {% endif %}
 
-                                {% if verification.criteria %}
-                                <div class="mt-4 space-y-3">
-                                    {% for criterion in verification.criteria %}
-                                    <div class="rounded-lg border border-emerald-100 bg-white/80 p-3 dark:border-emerald-900/30 dark:bg-slate-900/40">
-                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                            <div>
-                                                <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ criterion.name|default:"Criterion" }}</h4>
-                                                {% if criterion.weight %}
-                                                <p class="text-xs text-slate-500 dark:text-slate-400">{{ criterion.weight|floatformat:0 }} pts weight</p>
+                                {% if plagiarism_report_access %}
+                                <div class="mt-4 space-y-4">
+                                    {% if verification.criteria %}
+                                    <div class="space-y-3">
+                                        {% for criterion in verification.criteria %}
+                                        <div class="rounded-lg border border-emerald-100 bg-white/80 p-3 dark:border-emerald-900/30 dark:bg-slate-900/40">
+                                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                                <div>
+                                                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ criterion.name|default:"Criterion" }}</h4>
+                                                    {% if criterion.weight %}
+                                                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ criterion.weight|floatformat:0 }} pts weight</p>
+                                                    {% endif %}
+                                                </div>
+                                                <span class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                                    {{ criterion.score|default:0|floatformat:1 }}/100
+                                                </span>
+                                            </div>
+                                            {% if criterion.feedback %}
+                                            <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ criterion.feedback }}</p>
+                                            {% endif %}
+                                            <div class="mt-3 flex flex-wrap gap-2">
+                                                {% if criterion.matched_terms %}
+                                                    {% for term in criterion.matched_terms %}
+                                                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                                        Matched: {{ term }}
+                                                    </span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                                {% if criterion.missing_terms %}
+                                                    {% for term in criterion.missing_terms %}
+                                                    <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
+                                                        Missing: {{ term }}
+                                                    </span>
+                                                    {% endfor %}
                                                 {% endif %}
                                             </div>
-                                            <span class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                                                {{ criterion.score|default:0|floatformat:1 }}/100
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+
+                                    {% if verification.plagiarism_analysis %}
+                                    <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                            <div>
+                                                <span class="text-xs font-bold uppercase tracking-[0.2em] text-amber-700 dark:text-amber-300">Plagiarism / AI risk</span>
+                                                <p class="mt-1 text-xs text-amber-900/80 dark:text-amber-100/70">
+                                                    {{ verification.plagiarism_analysis.model|default:"hybrid-plagiarism-detector-v1" }}
+                                                </p>
+                                            </div>
+                                            <span class="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                                                Risk {{ verification.plagiarism_analysis.risk_score|default:0|floatformat:1 }}/100
                                             </span>
                                         </div>
-                                        {% if criterion.feedback %}
-                                        <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ criterion.feedback }}</p>
-                                        {% endif %}
+                                    {% if verification.plagiarism_analysis.decision %}
+                                        <p class="mt-2 text-sm text-amber-950 dark:text-amber-50">{{ verification.plagiarism_analysis.decision }}</p>
+                                    {% endif %}
+                                    {% if portal_role == 'manager' or portal_role == 'admin' %}
+                                    <a href="{% url 'operations:plagiarism_review' 'marketplace' sub.pk %}" class="mt-3 inline-flex items-center rounded-full border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:border-amber-400 hover:text-amber-900 dark:border-amber-900/40 dark:bg-slate-900/60 dark:text-amber-200 dark:hover:border-amber-700">
+                                        Open manager review
+                                    </a>
+                                    {% endif %}
+                                    {% if verification.plagiarism_analysis.signals %}
                                         <div class="mt-3 flex flex-wrap gap-2">
-                                            {% if criterion.matched_terms %}
-                                                {% for term in criterion.matched_terms %}
-                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-                                                    Matched: {{ term }}
-                                                </span>
-                                                {% endfor %}
-                                            {% endif %}
-                                            {% if criterion.missing_terms %}
-                                                {% for term in criterion.missing_terms %}
-                                                <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-medium text-rose-800 dark:bg-rose-900/30 dark:text-rose-200">
-                                                    Missing: {{ term }}
-                                                </span>
-                                                {% endfor %}
-                                            {% endif %}
+                                            {% for signal in verification.plagiarism_analysis.signals %}
+                                            <span class="inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-slate-900/40 dark:text-amber-200">
+                                                {{ signal }}
+                                            </span>
+                                            {% endfor %}
                                         </div>
+                                        {% endif %}
+                                        {% if verification.plagiarism_analysis.top_matches %}
+                                        <div class="mt-4 space-y-2">
+                                            {% for match in verification.plagiarism_analysis.top_matches %}
+                                            <div class="rounded-lg border border-amber-100 bg-white/80 p-3 dark:border-amber-900/30 dark:bg-slate-900/40">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Match {{ match.rank }}</p>
+                                                    <span class="text-xs font-medium text-amber-700 dark:text-amber-300">{{ match.score|floatformat:1 }}%</span>
+                                                </div>
+                                                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{{ match.excerpt|truncatechars:180 }}</p>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
                                     </div>
-                                    {% endfor %}
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <div class="mt-4 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/60 p-4 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-200">
+                                    Detailed plagiarism and rubric reports are included on the Expert plan.
                                 </div>
                                 {% endif %}
                             </div>
@@ -249,6 +303,7 @@
                                         <button class="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500">Approve & Release Payment</button>
                                     </form>
 
+                                    {% if can_request_revision %}
                                     <form action="{% url 'marketplace:task_revision' task.pk %}" method="post" class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900/50">
                                         {% csrf_token %}
                                         <h4 class="text-sm font-semibold text-slate-900 dark:text-white">Request revision</h4>
@@ -263,6 +318,11 @@
                                         </div>
                                         <button class="mt-4 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Request Revision</button>
                                     </form>
+                                    {% else %}
+                                    <div class="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
+                                        Revision requests are available on Pro and Expert plans.
+                                    </div>
+                                    {% endif %}
                                 </div>
                             {% endif %}
                         </div>
@@ -438,6 +498,134 @@
                         {% else %}
                             Waiting for an expert to be assigned...
                         {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                    <div class="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900 dark:text-white">Premium Sessions</h3>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Dedicated teaching, exam prep, and revision time for Expert plan students.
+                            </p>
+                        </div>
+                        <span class="rounded-full px-3 py-1 text-[11px] font-bold
+                            {% if premium_session_access %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200
+                            {% else %}bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+                            {% if premium_session_access %}Premium access{% else %}Expert only{% endif %}
+                        </span>
+                    </div>
+
+                    {% if premium_session_request_allowed and premium_session_form %}
+                    <form action="{% url 'marketplace:task_premium_session_request' task.pk %}" method="post" class="space-y-4">
+                        {% csrf_token %}
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="{{ premium_session_form.session_type.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Session type</label>
+                                {{ premium_session_form.session_type }}
+                            </div>
+                            <div>
+                                <label for="{{ premium_session_form.duration_minutes.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Duration</label>
+                                {{ premium_session_form.duration_minutes }}
+                            </div>
+                        </div>
+                        <div>
+                            <label for="{{ premium_session_form.topic.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Topic</label>
+                            {{ premium_session_form.topic }}
+                        </div>
+                        <div>
+                            <label for="{{ premium_session_form.scheduled_for.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Scheduled for</label>
+                            {{ premium_session_form.scheduled_for }}
+                        </div>
+                        <div>
+                            <label for="{{ premium_session_form.extra_fee_cents.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Extra fee in cents</label>
+                            {{ premium_session_form.extra_fee_cents }}
+                        </div>
+                        <div>
+                            <label for="{{ premium_session_form.student_notes.id_for_label }}" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
+                            {{ premium_session_form.student_notes }}
+                        </div>
+                        <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors">
+                            Request premium session
+                        </button>
+                    </form>
+                    {% elif portal_role == 'student' %}
+                    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
+                        Premium sessions are available on the Expert plan after your tasker has been assigned.
+                    </div>
+                    {% endif %}
+
+                    {% if premium_sessions %}
+                    <div class="mt-5 space-y-3">
+                        {% for session in premium_sessions %}
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{{ session.get_session_type_display }}</h4>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ session.topic }}</p>
+                                </div>
+                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold
+                                    {% if session.status == 'paid' %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200
+                                    {% elif session.status == 'awaiting_payment' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200
+                                    {% elif session.status == 'completed' %}bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-200
+                                    {% elif session.status == 'declined' or session.status == 'cancelled' %}bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200
+                                    {% else %}bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300{% endif %}">
+                                    {{ session.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                <span>{{ session.display_fee_label }}</span>
+                                <span>{{ session.duration_minutes }} min</span>
+                                {% if session.scheduled_for %}
+                                <span>{{ session.scheduled_for|date:"M d, Y H:i" }}</span>
+                                {% endif %}
+                            </div>
+                            {% if session.student_notes %}
+                            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{{ session.student_notes }}</p>
+                            {% endif %}
+
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                {% if session.status == 'requested' %}
+                                    {% if portal_role == 'tasker' or portal_role == 'manager' or portal_role == 'admin' %}
+                                    <form action="{% url 'marketplace:task_premium_session_accept' task.pk session.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="inline-flex items-center rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500">Accept</button>
+                                    </form>
+                                    <form action="{% url 'marketplace:task_premium_session_decline' task.pk session.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="inline-flex items-center rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-900/40 dark:bg-slate-900/50 dark:text-rose-200">Decline</button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+
+                                {% if session.status == 'awaiting_payment' and user.id == session.student_id %}
+                                <a href="{% url 'marketplace:task_premium_session_checkout' task.pk session.pk %}" class="inline-flex items-center rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-500">
+                                    Pay now
+                                </a>
+                                {% endif %}
+
+                                {% if session.status == 'paid' %}
+                                    {% if user.id == session.student_id %}
+                                    <form action="{% url 'marketplace:task_premium_session_complete' task.pk session.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="inline-flex items-center rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500">Mark complete</button>
+                                    </form>
+                                    {% elif tasker_profile and session.tasker_id == tasker_profile.id %}
+                                    <form action="{% url 'marketplace:task_premium_session_complete' task.pk session.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="inline-flex items-center rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500">Mark complete</button>
+                                    </form>
+                                    {% elif portal_role == 'manager' or portal_role == 'admin' %}
+                                    <form action="{% url 'marketplace:task_premium_session_complete' task.pk session.pk %}" method="post">
+                                        {% csrf_token %}
+                                        <button type="submit" class="inline-flex items-center rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500">Mark complete</button>
+                                    </form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                     {% endif %}
                 </div>

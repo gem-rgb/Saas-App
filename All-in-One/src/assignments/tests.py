@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from auth.models import UserRole
 from assignments.models import Assignment, AssignmentSubmission, AssignmentVerification, AssignmentVerificationCheck, TaskerProfile
+from operations.models import ManagerProfile
 
 
 @override_settings(
@@ -21,6 +22,8 @@ class AssignmentRubricUiTests(TestCase):
         self.user_model = get_user_model()
         self.creator = self._create_user("creator-user", UserRole.RoleType.STUDENT)
         self.tasker = self._create_user("tasker-user", UserRole.RoleType.TASKER)
+        self.manager = self._create_user("manager-user", UserRole.RoleType.MANAGER)
+        ManagerProfile.objects.create(user=self.manager)
 
         self.tasker_profile = TaskerProfile.objects.create(
             user=self.tasker,
@@ -83,6 +86,20 @@ class AssignmentRubricUiTests(TestCase):
                 "summary": "Rubric-based verification completed with a score of 86/100.",
                 "grading_style": "partial",
                 "minimum_score": 70,
+                "plagiarism_analysis": {
+                    "model": "hybrid-plagiarism-detector-v1",
+                    "risk_score": 76.0,
+                    "risk_level": "high",
+                    "decision": "High plagiarism risk",
+                    "signals": ["near_duplicate_to_corpus"],
+                    "top_matches": [
+                        {
+                            "rank": 1,
+                            "score": 88.0,
+                            "excerpt": "The essay has a strong thesis and evidence with a similar structure.",
+                        }
+                    ],
+                },
             },
             issues_found=[],
             suggestions=[],
@@ -135,10 +152,20 @@ class AssignmentRubricUiTests(TestCase):
         self.assertContains(response, "Minimum 70/100")
 
     def test_assignment_detail_shows_criterion_breakdown(self):
-        self.client.force_login(self.creator)
+        self.client.force_login(self.manager)
         response = self.client.get(reverse("assignments:assignment_detail", args=[self.assignment.pk]))
 
         self.assertContains(response, "AI verification")
         self.assertContains(response, "Thesis clarity")
         self.assertContains(response, "Matched: thesis")
         self.assertContains(response, "Missing: citation")
+        self.assertContains(response, "Plagiarism / AI risk")
+        self.assertContains(response, "High plagiarism risk")
+
+    def test_assignment_detail_hides_plagiarism_without_subscription(self):
+        self.client.force_login(self.creator)
+        response = self.client.get(reverse("assignments:assignment_detail", args=[self.assignment.pk]))
+
+        self.assertContains(response, "AI verification")
+        self.assertNotContains(response, "Plagiarism / AI risk")
+        self.assertContains(response, "Detailed plagiarism and rubric reports are included on the Expert plan.")

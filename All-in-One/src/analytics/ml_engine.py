@@ -4,8 +4,10 @@ Uses scikit-learn for churn prediction, health scoring, and smart recommendation
 Models self-train as user data accumulates.
 """
 import datetime
+import heapq
 import logging
 import numpy as np
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -13,6 +15,43 @@ logger = logging.getLogger(__name__)
 # Feature extraction thresholds
 HEALTHY_LOGIN_FREQ_DAYS = 3  # Login at least every 3 days = healthy
 ENGAGEMENT_WINDOW_DAYS = 30
+
+
+def _assignment_workload_map(taskers):
+    tasker_ids = [getattr(tasker, "id", None) for tasker in taskers if getattr(tasker, "id", None) is not None]
+    if not tasker_ids:
+        return {}
+
+    from assignments.models import Assignment as AssignmentModel
+
+    workload_rows = (
+        AssignmentModel.objects.filter(
+            assigned_to_id__in=tasker_ids,
+            status__in=["posted", "in_progress"],
+        )
+        .values("assigned_to_id")
+        .annotate(total_hours=Sum("estimated_hours"))
+    )
+    return {row["assigned_to_id"]: float(row["total_hours"] or 0) for row in workload_rows}
+
+
+def _recent_submission_map(taskers, window_days=30):
+    tasker_ids = [getattr(tasker, "id", None) for tasker in taskers if getattr(tasker, "id", None) is not None]
+    if not tasker_ids:
+        return {}
+
+    from assignments.models import AssignmentSubmission
+
+    cutoff = timezone.now() - datetime.timedelta(days=window_days)
+    submission_rows = (
+        AssignmentSubmission.objects.filter(
+            tasker_id__in=tasker_ids,
+            submitted_at__gte=cutoff,
+        )
+        .values("tasker_id")
+        .annotate(total_submissions=Count("id"))
+    )
+    return {row["tasker_id"]: int(row["total_submissions"] or 0) for row in submission_rows}
 
 
 def _safe_import_sklearn():
@@ -355,47 +394,53 @@ def calculate_skill_match_score(assignment_skills, tasker_skills):
     return min(1.0, skill_match + versatility_bonus)
 
 
-def calculate_availability_score(tasker, assignment_hours):
+def calculate_availability_score(tasker, assignment_hours, current_hours=None):
     """
     Calculate availability match based on tasker's weekly hours and current workload.
     Returns score from 0 to 1.
     """
-    # Get current active assignments for tasker
-    from assignments.models import Assignment as AssignmentModel
-    
-    active_assignments = AssignmentModel.objects.filter(
-        assigned_to=tasker,
-        status__in=['posted', 'in_progress']
-    ).aggregate(
-        total_hours=models.Sum('estimated_hours')
-    )
-    
-    current_hours = active_assignments.get('total_hours') or 0
-    available_hours = max(0, tasker.availability_hours_per_week - current_hours)
-    
-    if assignment_hours <= available_hours:
+    required_hours = max(float(assignment_hours or 0), 1.0)
+    if current_hours is None:
+        from assignments.models import Assignment as AssignmentModel
+
+        current_hours = (
+            AssignmentModel.objects.filter(
+                assigned_to=tasker,
+                status__in=["posted", "in_progress"],
+            )
+            .aggregate(total_hours=Sum("estimated_hours"))
+            .get("total_hours")
+            or 0
+        )
+
+    available_hours = max(0.0, float(getattr(tasker, "availability_hours_per_week", 0)) - float(current_hours or 0))
+
+    if required_hours <= available_hours:
         return 1.0
     elif available_hours > 0:
-        return available_hours / assignment_hours
+        return max(0.0, min(1.0, available_hours / required_hours))
     else:
         return 0.0
 
 
-def calculate_success_history_score(tasker):
+def calculate_success_history_score(tasker, recent_submissions=None):
     """
     Calculate score based on tasker's track record.
     Returns score from 0 to 1.
     """
     # Success rate is stored as percentage (0-100)
     success_rate = tasker.success_rate / 100.0
-    
-    # Recent completion bonus
-    from assignments.models import AssignmentSubmission
-    recent_submissions = AssignmentSubmission.objects.filter(
-        tasker=tasker,
-        submitted_at__gte=timezone.now() - datetime.timedelta(days=30)
-    ).count()
-    
+
+    if recent_submissions is None:
+        from assignments.models import AssignmentSubmission
+
+        recent_submissions = AssignmentSubmission.objects.filter(
+            tasker=tasker,
+            submitted_at__gte=timezone.now() - datetime.timedelta(days=30),
+        ).count()
+
+    recent_submissions = int(recent_submissions or 0)
+
     # More recent completions = higher reliability
     recency_bonus = min(0.15, recent_submissions * 0.03)
     
@@ -438,18 +483,26 @@ def match_assignment_to_taskers(assignment, top_n=5):
     Returns list of dicts with tasker info and match score.
     """
     from assignments.models import TaskerProfile
-    from django.db import models as db_models
     
     # Get active taskers
-    taskers = TaskerProfile.objects.filter(is_active_tasker=True)
+    taskers = list(TaskerProfile.objects.filter(is_active_tasker=True))
+    if not taskers:
+        return []
+
+    workload_map = _assignment_workload_map(taskers)
+    submission_map = _recent_submission_map(taskers)
     
     matches = []
     
     for tasker in taskers:
         # Calculate individual match components
         skill_match = calculate_skill_match_score(assignment.required_skills, tasker.skills)
-        availability = calculate_availability_score(tasker, assignment.estimated_hours)
-        success_history = calculate_success_history_score(tasker)
+        availability = calculate_availability_score(
+            tasker,
+            assignment.estimated_hours,
+            current_hours=workload_map.get(tasker.id, 0),
+        )
+        success_history = calculate_success_history_score(tasker, submission_map.get(tasker.id, 0))
         skill_level = calculate_skill_level_match(tasker, assignment.priority)
         
         # Weighted combination of factors
@@ -472,10 +525,12 @@ def match_assignment_to_taskers(assignment, top_n=5):
                 'skill_level': round(skill_level, 3),
             })
     
-    # Sort by score descending
-    matches.sort(key=lambda x: x['score'], reverse=True)
-    
-    return matches[:top_n]
+    if not matches:
+        return []
+
+    ranked = heapq.nlargest(top_n, matches, key=lambda item: (item["score"], item["success_history"], item["availability"]))
+    ranked.sort(key=lambda x: x["score"], reverse=True)
+    return ranked[:top_n]
 
 
 def recommend_assignment_to_tasker(tasker):
@@ -490,14 +545,32 @@ def recommend_assignment_to_tasker(tasker):
         status='posted',
         assigned_to=None
     )
-    
-    recommendations = []
-    
+
+    current_hours = (
+        AssignmentModel.objects.filter(
+            assigned_to=tasker,
+            status__in=["posted", "in_progress"],
+        )
+        .aggregate(total_hours=Sum("estimated_hours"))
+        .get("total_hours")
+        or 0
+    )
+    from assignments.models import AssignmentSubmission
+
+    recent_submissions = AssignmentSubmission.objects.filter(
+        tasker=tasker,
+        submitted_at__gte=timezone.now() - datetime.timedelta(days=30)
+    ).count()
+
+    heap = []
+    heap_limit = 10
+
     for assignment in available_assignments:
         # Calculate match score
         skill_match = calculate_skill_match_score(assignment.required_skills, tasker.skills)
-        availability = calculate_availability_score(tasker, assignment.estimated_hours)
+        availability = calculate_availability_score(tasker, assignment.estimated_hours, current_hours=current_hours)
         skill_level = calculate_skill_level_match(tasker, assignment.priority)
+        success_history = calculate_success_history_score(tasker, recent_submissions=recent_submissions)
         
         combined_score = (
             skill_match * 0.4 +
@@ -506,16 +579,24 @@ def recommend_assignment_to_tasker(tasker):
         )
         
         if combined_score > 0.5:  # Higher threshold for personal recommendations
-            recommendations.append({
+            recommendation = {
                 'assignment': assignment,
                 'score': round(combined_score, 3),
                 'match_details': {
                     'skill_match': round(skill_match, 3),
                     'availability': round(availability, 3),
+                    'success_history': round(success_history, 3),
                     'skill_level': round(skill_level, 3),
                 }
-            })
-    
-    # Sort by score descending and return top 10
-    recommendations.sort(key=lambda x: x['score'], reverse=True)
-    return recommendations[:10]
+            }
+            entry = (combined_score, success_history, recommendation)
+            if len(heap) < heap_limit:
+                heapq.heappush(heap, entry)
+            else:
+                heapq.heappushpop(heap, entry)
+
+    if not heap:
+        return []
+
+    heap.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    return [candidate for _, _, candidate in heap[:heap_limit]]

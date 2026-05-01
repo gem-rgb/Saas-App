@@ -5,11 +5,12 @@ from django.utils import timezone
 
 from auth.permissions import portal_url_for_user, require_admin, require_manager, require_student, require_tasker
 from marketplace.models import TaskNotification, TaskOrder
-from marketplace.permissions import can_receive_work, get_platform_role
+from marketplace.permissions import can_receive_work, get_platform_role, tasker_has_active_work
 from marketplace.services import recommend_task_rows_for_tasker, recommend_taskers_for_subject
 from assignments.models import TaskerProfile
 from operations.models import EscalationCase, Region
 from subscriptions.models import UserSubscription
+from subscriptions import utils as subs_utils
 from trust.models import TaskerApplication
 
 
@@ -30,6 +31,14 @@ def _subscription_snapshot(user):
         "period_start": None,
         "period_end": None,
         "feature_codes": [],
+        "active_task_limit": None,
+        "turnaround_hours": None,
+        "support_channel": "email",
+        "analytics_tier": 0,
+        "matching_mode": "standard",
+        "matching_mode_label": "Standard matching",
+        "session_mode": "standard",
+        "session_mode_label": "Standard access",
     }
     user_sub = UserSubscription.objects.select_related("subscription").filter(user=user).first()
     if not user_sub:
@@ -44,6 +53,20 @@ def _subscription_snapshot(user):
         snapshot["days_remaining"] = max(0, (user_sub.current_period_end - timezone.now()).days)
     if user_sub.subscription:
         snapshot["feature_codes"] = user_sub.subscription.get_feature_codes()
+        snapshot["active_task_limit"] = subs_utils.subscription_active_task_limit(user)
+        snapshot["turnaround_hours"] = subs_utils.subscription_turnaround_hours(user)
+        snapshot["support_channel"] = subs_utils.subscription_support_channel(user)
+        snapshot["analytics_tier"] = subs_utils.subscription_analytics_access_level(user)
+        snapshot["matching_mode"] = subs_utils.subscription_matching_mode(user)
+        snapshot["matching_mode_label"] = {
+            "priority": "Priority matching",
+            "standard": "Standard matching",
+        }.get(snapshot["matching_mode"], snapshot["matching_mode"].replace("_", " ").title())
+        snapshot["session_mode"] = subs_utils.subscription_session_mode(user)
+        snapshot["session_mode_label"] = {
+            "premium": "Premium sessions",
+            "standard": "Standard access",
+        }.get(snapshot["session_mode"], snapshot["session_mode"].replace("_", " ").title())
     return snapshot
 
 
@@ -105,7 +128,10 @@ def _student_context(request):
         "student_tasks": tasks[:8],
         "student_summary": summary,
         "student_subject_focus": focus_subject,
-        "student_recommended_taskers": recommend_taskers_for_subject(focus_subject),
+        "student_recommended_taskers": recommend_taskers_for_subject(
+            focus_subject,
+            matching_mode=subs_utils.subscription_matching_mode(request.user),
+        ),
     }
 
 
@@ -134,7 +160,7 @@ def _tasker_context(request):
     }
     return {
         "tasker_tasks": tasks[:8],
-        "tasker_recommendation_rows": recommend_task_rows_for_tasker(tasker),
+        "tasker_recommendation_rows": recommend_task_rows_for_tasker(tasker) if can_receive_work(tasker) else [],
         "tasker_competencies": tasker.competency_areas.all(),
         "tasker_summary": metrics,
         "tasker_portal_ready": can_receive_work(tasker),
@@ -263,7 +289,7 @@ def student_dashboard_view(request):
 @login_required
 def tasker_dashboard_view(request):
     tasker = _tasker_profile(request.user)
-    if not can_receive_work(tasker):
+    if not can_receive_work(tasker) and not tasker_has_active_work(tasker):
         return redirect("trust:onboarding")
     return render(request, "dashboard/main.html", _dashboard_context(request, "tasker"))
 

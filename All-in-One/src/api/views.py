@@ -10,7 +10,16 @@ from marketplace.serializers import TaskOrderSerializer
 from marketplace.services import recommend_taskers_for_subject
 from operations.models import EscalationCase, Region, TaskerPerformanceSnapshot
 from subscriptions.models import UserSubscription
-from subscriptions.utils import subscription_has_feature, user_subscription_plan
+from subscriptions.utils import (
+    subscription_active_task_limit,
+    subscription_analytics_access_level,
+    subscription_has_feature,
+    subscription_matching_mode,
+    subscription_session_mode,
+    subscription_support_channel,
+    subscription_turnaround_hours,
+    user_subscription_plan,
+)
 from analytics.models import UserActivity
 from agents.interview_agent import infer_interview_focus
 from trust.models import (
@@ -261,7 +270,10 @@ def recommendations_view(request):
                 "quality_score": item["quality_score"],
                 "availability_hours": item["availability_hours"],
             }
-            for item in recommend_taskers_for_subject(subject)
+            for item in recommend_taskers_for_subject(
+                subject,
+                matching_mode=subscription_matching_mode(request.user),
+            )
         ]
     elif role == "tasker":
         recommendations = TaskOrderSerializer(
@@ -327,6 +339,13 @@ def portal_summary_view(request):
             "assignment_insights": _has_assignment_insights_access(request.user),
             "writer_recommendations": bool(subscription and subscription.has_feature("subject_recommendations")),
             "manager_console": bool(role in {"manager", "admin"} or (subscription and subscription.has_feature("manager_console"))),
+            "analytics_level": subscription_analytics_access_level(request.user),
+            "active_task_limit": subscription_active_task_limit(request.user),
+            "turnaround_hours": subscription_turnaround_hours(request.user),
+            "matching_mode": subscription_matching_mode(request.user),
+            "session_mode": subscription_session_mode(request.user),
+            "premium_session_access": subscription_session_mode(request.user) == "premium",
+            "support_channel": subscription_support_channel(request.user),
         },
         "subscription": subscription.serialize() if subscription else None,
     })

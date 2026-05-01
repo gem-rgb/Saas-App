@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Avg, Count, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,18 +15,27 @@ from marketplace.forms import (
     TaskAttachmentForm,
     TaskConversationMessageForm,
     TaskOrderForm,
+    TaskPremiumSessionRequestForm,
     TaskRatingForm,
     TaskRevisionRequestForm,
     TaskSubmissionForm,
 )
-from marketplace.models import TaskConversationMessage, TaskConversationReadState, TaskOrder, TaskSubmission
-from marketplace.permissions import can_receive_work, get_platform_role, has_role, role_required
+from marketplace.models import (
+    TaskConversationMessage,
+    TaskConversationReadState,
+    TaskNotification,
+    TaskOrder,
+    TaskPayment,
+    TaskPremiumSession,
+    TaskSubmission,
+)
+from marketplace.permissions import can_receive_work, get_platform_role, has_role, role_required, tasker_has_active_work
 from marketplace.services import auto_assign_task, build_task_estimate, refresh_tasker_metrics, recommend_task_rows_for_tasker, release_payment
-from helpers.paystack_billing import initialize_transaction
+from helpers.paystack_billing import initialize_transaction, verify_transaction
 from django.urls import reverse
 from django.conf import settings
-from marketplace.models import TaskPayment
 from operations.models import EscalationCase
+from subscriptions.utils import can_publish_task, student_active_task_count, subscription_active_task_limit, subscription_has_feature
 
 
 def _task_queryset_for_user(user):
@@ -35,7 +45,15 @@ def _task_queryset_for_user(user):
         "competency_area",
         "assigned_tasker",
         "region_preference",
-    ).prefetch_related("attachments", "match_suggestions", "submissions", "status_events", "ratings")
+    ).prefetch_related(
+        "attachments",
+        "match_suggestions",
+        "submissions",
+        "premium_sessions",
+        "premium_sessions__payment",
+        "status_events",
+        "ratings",
+    )
     if not user.is_authenticated:
         return base.none()
     role = get_platform_role(user)
@@ -51,6 +69,8 @@ def _task_queryset_for_user(user):
                 | Q(assigned_tasker=tasker_profile)
                 | Q(match_suggestions__tasker=tasker_profile)
             ).distinct()
+        if tasker_profile and tasker_has_active_work(tasker_profile):
+            return base.filter(assigned_tasker=tasker_profile).distinct()
         return base.none()
     return base.filter(student=user)
 
@@ -88,11 +108,39 @@ def _task_chat_access(task, user):
         return bool(
             task.assigned_tasker_id
             and tasker_profile
-            and can_receive_work(tasker_profile)
             and task.assigned_tasker_id == tasker_profile.id
         )
 
     return False
+
+
+def _task_detail_access_level(task, user):
+    if not user.is_authenticated:
+        return "none"
+
+    role = get_platform_role(user)
+    if role in {"manager", "admin"}:
+        return "full"
+
+    if task.status == TaskOrder.Status.DRAFT:
+        if role == "student" and task.student_id == user.id:
+            return "full"
+        if role == "tasker":
+            tasker_profile = getattr(user, "tasker_profile", None)
+            if task.assigned_tasker_id and tasker_profile and task.assigned_tasker_id == tasker_profile.id:
+                return "full"
+        return "none"
+
+    if role == "student":
+        return "full" if task.student_id == user.id else "read_only"
+
+    if role == "tasker":
+        tasker_profile = getattr(user, "tasker_profile", None)
+        if task.assigned_tasker_id and tasker_profile and task.assigned_tasker_id == tasker_profile.id:
+            return "full"
+        return "read_only"
+
+    return "read_only"
 
 
 def _visible_task_messages(task, user):
@@ -161,6 +209,7 @@ def _task_submission_verification_payload(submission):
     if not isinstance(verification, dict):
         return {}
 
+    payload = dict(verification)
     raw_checks = verification.get("checks")
     checks = []
     criteria = []
@@ -197,18 +246,16 @@ def _task_submission_verification_payload(submission):
                 }
             )
 
-    payload = {
-        "source": verification.get("source", "heuristic"),
-        "overall_score": verification.get("overall_score", getattr(submission, "ai_quality_score", 0.0)),
-        "passed": verification.get("passed", False),
-        "summary": verification.get("summary", submission.summary),
-        "checks": checks,
-        "issues": verification.get("issues", []),
-        "suggestions": verification.get("suggestions", []),
-        "grading_style": verification.get("grading_style", ""),
-        "minimum_score": verification.get("minimum_score", 70),
-        "criteria": criteria,
-    }
+    payload.setdefault("source", "heuristic")
+    payload.setdefault("overall_score", getattr(submission, "ai_quality_score", 0.0))
+    payload.setdefault("passed", False)
+    payload.setdefault("summary", submission.summary)
+    payload.setdefault("issues", [])
+    payload.setdefault("suggestions", [])
+    payload.setdefault("grading_style", "")
+    payload.setdefault("minimum_score", 70)
+    payload["checks"] = checks
+    payload["criteria"] = criteria
     return payload
 
 
@@ -217,12 +264,69 @@ def _enrich_task_submission(submission):
     return submission
 
 
+def _can_request_revisions(user):
+    role = get_platform_role(user)
+    if role in {"manager", "admin"}:
+        return True
+    return subscription_has_feature(user, "revision_requests") or subscription_has_feature(user, "unlimited_revisions")
+
+
+def _has_plagiarism_report_access(user):
+    role = get_platform_role(user)
+    if role in {"manager", "admin"}:
+        return True
+    return subscription_has_feature(user, "plagiarism_reports") or subscription_has_feature(user, "quality_reports")
+
+
+def _has_premium_session_access(user):
+    role = get_platform_role(user)
+    if role in {"manager", "admin"}:
+        return True
+    return subscription_has_feature(user, "premium_sessions")
+
+
+def _can_request_premium_session(user, task):
+    if not user.is_authenticated or task.assigned_tasker_id is None:
+        return False
+
+    if get_platform_role(user) != "student":
+        return False
+
+    if task.student_id != user.id:
+        return False
+
+    if task.status not in {
+        TaskOrder.Status.ASSIGNED,
+        TaskOrder.Status.IN_PROGRESS,
+        TaskOrder.Status.QUALITY_REVIEW,
+        TaskOrder.Status.REVISION,
+    }:
+        return False
+
+    return _has_premium_session_access(user)
+
+
+def _premium_session_queryset_for_user(task, user):
+    base = task.premium_sessions.select_related("student", "tasker", "payment").order_by("-created_at")
+    role = get_platform_role(user)
+    if role in {"manager", "admin"}:
+        return base
+    if role == "student":
+        return base.filter(student=user)
+    if role == "tasker":
+        tasker_profile = getattr(user, "tasker_profile", None)
+        if tasker_profile is None:
+            return base.none()
+        return base.filter(tasker=tasker_profile)
+    return base.none()
+
+
 @login_required
 def board_view(request):
     role = get_platform_role(request.user)
     if role == "tasker":
         tasker_profile = getattr(request.user, "tasker_profile", None)
-        if not can_receive_work(tasker_profile):
+        if not can_receive_work(tasker_profile) and not tasker_has_active_work(tasker_profile):
             messages.info(request, "Complete trust onboarding before accessing the tasker portal.")
             return redirect("trust:onboarding")
 
@@ -240,7 +344,7 @@ def board_view(request):
         "portal_role": role,
         "summary": summary,
         "tasks": tasks[:24],
-        "tasker_recommendation_rows": recommend_task_rows_for_tasker(tasker_profile) if role == "tasker" else [],
+        "tasker_recommendation_rows": recommend_task_rows_for_tasker(tasker_profile) if role == "tasker" and can_receive_work(tasker_profile) else [],
         "task_form": TaskOrderForm(),
         "attachment_form": TaskAttachmentForm(),
         "submission_form": TaskSubmissionForm(),
@@ -302,13 +406,24 @@ def task_create_view(request):
 
 @login_required
 def task_detail_view(request, pk):
-    task = get_object_or_404(_task_queryset_for_user(request.user), pk=pk)
+    task = get_object_or_404(TaskOrder, pk=pk)
     portal_role = get_platform_role(request.user)
     tasker_profile = getattr(request.user, "tasker_profile", None)
+    detail_access = _task_detail_access_level(task, request.user)
+    if detail_access == "none":
+        raise Http404
+    full_access = detail_access == "full"
     tasker_ready = can_receive_work(tasker_profile) if portal_role == "tasker" else True
-    chat_access = _task_chat_access(task, request.user)
-    unread_count = _task_chat_unread_count(task, request.user)
+    tasker_has_work = tasker_has_active_work(tasker_profile) if portal_role == "tasker" else False
+    chat_access = full_access and _task_chat_access(task, request.user)
+    unread_count = _task_chat_unread_count(task, request.user) if chat_access else 0
     task_verification_rubric = _task_verification_rubric(task)
+    revision_access = full_access and _can_request_revisions(request.user)
+    plagiarism_report_access = full_access and _has_plagiarism_report_access(request.user)
+    premium_session_access = full_access and _has_premium_session_access(request.user)
+    premium_session_request_allowed = full_access and _can_request_premium_session(request.user, task)
+    premium_session_form = TaskPremiumSessionRequestForm() if premium_session_request_allowed else None
+    premium_sessions = _premium_session_queryset_for_user(task, request.user) if full_access else []
     dashboard_url = portal_url_for_user(request.user) if portal_role in {"student", "tasker", "manager", "admin"} else portal_url_for_role("student")
     conversation_form = None
     if chat_access:
@@ -323,27 +438,33 @@ def task_detail_view(request, pk):
         "conversation_dashboard_url": dashboard_url,
         "conversation_dashboard_label": {
             "student": "Student Dashboard",
-            "tasker": "Tasker Dashboard" if tasker_ready else "Trust Onboarding",
+            "tasker": "Tasker Dashboard" if (tasker_ready or tasker_has_work) else "Trust Onboarding",
             "manager": "Manager Dashboard",
             "admin": "Admin Dashboard",
         }.get(portal_role, "Dashboard"),
         "conversation_unread_count": unread_count,
         "task_verification_rubric": task_verification_rubric,
         "attachments": task.attachments.all(),
-        "suggestions": task.match_suggestions.select_related("tasker", "tasker__user").all(),
-        "submissions": [_enrich_task_submission(submission) for submission in task.submissions.select_related("tasker", "reviewed_by").all()],
-        "events": task.status_events.all()[:12],
-        "ratings": task.ratings.all(),
+        "suggestions": task.match_suggestions.select_related("tasker", "tasker__user").all() if full_access else [],
+        "submissions": [_enrich_task_submission(submission) for submission in task.submissions.select_related("tasker", "reviewed_by").all()] if full_access else [],
+        "events": task.status_events.all()[:12] if full_access else [],
+        "ratings": task.ratings.all() if full_access else [],
         "tasker_profile": getattr(request.user, "tasker_profile", None),
         "task_form": TaskOrderForm(instance=task),
         "attachment_form": TaskAttachmentForm(),
         "submission_form": TaskSubmissionForm(),
         "revision_form": TaskRevisionRequestForm(),
+        "premium_session_form": premium_session_form,
+        "premium_session_access": premium_session_access,
+        "premium_session_request_allowed": premium_session_request_allowed,
+        "premium_sessions": premium_sessions,
         "rating_form": TaskRatingForm(),
         "chat_access": chat_access,
-        "conversation_messages": _visible_task_messages(task, request.user),
+        "conversation_messages": _visible_task_messages(task, request.user) if chat_access else [],
         "conversation_form": conversation_form,
         "tasker_portal_ready": tasker_ready,
+        "can_request_revision": revision_access,
+        "plagiarism_report_access": plagiarism_report_access,
     }
     return render(request, "marketplace/task_detail.html", context)
 
@@ -352,6 +473,12 @@ def task_detail_view(request, pk):
 @require_POST
 def task_publish_view(request, pk):
     task = get_object_or_404(TaskOrder, pk=pk, student=request.user)
+    if not can_publish_task(request.user):
+        limit = subscription_active_task_limit(request.user)
+        active_count = student_active_task_count(request.user)
+        remaining = max(0, (limit or 0) - active_count)
+        messages.error(request, f"Your plan allows {limit} active tasks. You have {remaining} slots left.")
+        return redirect("marketplace:task_detail", pk=task.pk)
     task.publish()
     result = auto_assign_task(task, actor=request.user)
     messages.success(request, f"Published {task.title} and generated {len(result['matches'])} AI match suggestions.")
@@ -413,9 +540,6 @@ def task_assign_view(request, pk):
 def task_submit_view(request, pk):
     task = get_object_or_404(TaskOrder, pk=pk)
     tasker_profile = getattr(request.user, "tasker_profile", None)
-    if get_platform_role(request.user) == "tasker" and not can_receive_work(tasker_profile):
-        messages.info(request, "Complete trust onboarding before submitting work.")
-        return redirect("trust:onboarding")
     if tasker_profile is None or task.assigned_tasker != tasker_profile:
         messages.error(request, "This task is not assigned to you.")
         return redirect("marketplace:task_detail", pk=pk)
@@ -437,6 +561,11 @@ def task_submit_view(request, pk):
                 required_skills=task.subject,
                 instructions=task.instructions,
                 rubric=task.metadata.get("verification_rubric") if isinstance(task.metadata, dict) else None,
+                author_id=request.user.id,
+                submission_source="marketplace",
+                source_object_id=task.id,
+                submission_id=submission.id,
+                metadata=submission.metadata if isinstance(submission.metadata, dict) else {},
             )
             submission.ai_quality_score = verification.get("overall_score", 0.0)
             submission.quality_score = verification.get("overall_score", 0.0)
@@ -494,6 +623,9 @@ def task_revision_view(request, pk):
     role = get_platform_role(request.user)
     if task.student_id != request.user.id and role not in {"manager", "admin"}:
         messages.error(request, "You do not have permission to request a revision for this task.")
+        return redirect("marketplace:task_detail", pk=pk)
+    if role not in {"manager", "admin"} and not _can_request_revisions(request.user):
+        messages.error(request, "Revision requests are available on Pro and Expert plans.")
         return redirect("marketplace:task_detail", pk=pk)
 
     if request.method == "POST":
@@ -581,4 +713,339 @@ def task_rate_view(request, pk):
             if task.assigned_tasker:
                 refresh_tasker_metrics(task.assigned_tasker)
             return redirect("marketplace:task_detail", pk=pk)
+    return redirect("marketplace:task_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def task_premium_session_request_view(request, pk):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    if task.student_id != request.user.id:
+        messages.error(request, "You can only request premium sessions for your own tasks.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if not _can_request_premium_session(request.user, task):
+        messages.error(request, "Premium sessions are included on the Expert plan and require an assigned tasker.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if task.assigned_tasker is None:
+        messages.error(request, "A tasker must be assigned before you can request a premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    form = TaskPremiumSessionRequestForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Please correct the premium session request details.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    session = form.save(commit=False)
+    session.task = task
+    session.student = request.user
+    session.tasker = task.assigned_tasker
+    session.status = TaskPremiumSession.Status.REQUESTED
+    session.save()
+
+    TaskNotification.objects.create(
+        recipient=task.assigned_tasker.user,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="New premium session request",
+        body=f"{request.user.get_full_name() or request.user.username} requested a {session.get_session_type_display().lower()} session for {task.title}.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "session_type": session.session_type,
+        },
+    )
+    TaskNotification.objects.create(
+        recipient=request.user,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="Premium session requested",
+        body="Your tasker has been notified and can accept the session request.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "session_type": session.session_type,
+        },
+    )
+    messages.success(request, "Premium session request sent to your tasker.")
+    return redirect("marketplace:task_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def task_premium_session_accept_view(request, pk, session_id):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    session = get_object_or_404(TaskPremiumSession, pk=session_id, task=task)
+    role = get_platform_role(request.user)
+    tasker_profile = getattr(request.user, "tasker_profile", None)
+
+    if role not in {"tasker", "manager", "admin"}:
+        messages.error(request, "Only the assigned tasker or a manager can accept this session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if role == "tasker" and (tasker_profile is None or session.tasker_id != tasker_profile.id):
+        messages.error(request, "You are not assigned to this premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if session.status != TaskPremiumSession.Status.REQUESTED:
+        messages.info(request, "This premium session has already been processed.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    payment = TaskPayment.objects.create(
+        task=task,
+        payment_kind=TaskPayment.PaymentKind.PREMIUM_SESSION,
+        amount_cents=session.extra_fee_cents,
+        currency=session.currency,
+        provider="paystack",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "student_id": session.student_id,
+            "tasker_id": session.tasker_id,
+            "session_type": session.session_type,
+            "topic": session.topic,
+        },
+    )
+
+    try:
+        callback_url = request.build_absolute_uri(
+            reverse("marketplace:task_premium_session_finalize", args=[task.pk, session.pk])
+        )
+        paystack_response = initialize_transaction(
+            email=session.student.email,
+            amount_minor=session.extra_fee_cents,
+            reference=str(payment.id),
+            callback_url=callback_url,
+            metadata={
+                "task_id": task.id,
+                "premium_session_id": session.id,
+                "payment_kind": TaskPayment.PaymentKind.PREMIUM_SESSION,
+                "payment_id": payment.id,
+            },
+        )
+        authorization_url = paystack_response.get("data", {}).get("authorization_url")
+        provider_reference = paystack_response.get("data", {}).get("reference") or str(payment.id)
+        if not authorization_url:
+            raise ValueError("Paystack did not return an authorization URL.")
+    except Exception:
+        payment.status = TaskPayment.Status.FAILED
+        payment.metadata = {**(payment.metadata or {}), "error": "Failed to initialize premium session payment."}
+        payment.save(update_fields=["status", "metadata"])
+        messages.error(request, "Unable to start payment for this premium session. Please try again.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    payment.provider_reference = provider_reference
+    payment.metadata = {
+        **(payment.metadata or {}),
+        "authorization_url": authorization_url,
+        "payment_reference": provider_reference,
+        "callback_url": callback_url,
+    }
+    payment.save(update_fields=["provider_reference", "metadata"])
+
+    session.payment = payment
+    session.provider_reference = provider_reference
+    session.status = TaskPremiumSession.Status.AWAITING_PAYMENT
+    session.accepted_at = timezone.now()
+    session.metadata = {
+        **(session.metadata or {}),
+        "authorization_url": authorization_url,
+        "payment_reference": provider_reference,
+        "payment_id": payment.id,
+    }
+    session.save(update_fields=["payment", "provider_reference", "status", "accepted_at", "metadata", "updated_at"])
+
+    TaskNotification.objects.create(
+        recipient=session.student,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="Premium session accepted",
+        body=f"Your {session.get_session_type_display().lower()} session request has been accepted. Complete payment to confirm the booking.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "checkout_url": authorization_url,
+            "payment_id": payment.id,
+        },
+    )
+    messages.success(request, "Premium session accepted. The student can now complete payment.")
+    return redirect("marketplace:task_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def task_premium_session_decline_view(request, pk, session_id):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    session = get_object_or_404(TaskPremiumSession, pk=session_id, task=task)
+    role = get_platform_role(request.user)
+    tasker_profile = getattr(request.user, "tasker_profile", None)
+
+    if role not in {"tasker", "manager", "admin"}:
+        messages.error(request, "Only the assigned tasker or a manager can decline this session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if role == "tasker" and (tasker_profile is None or session.tasker_id != tasker_profile.id):
+        messages.error(request, "You are not assigned to this premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if session.status != TaskPremiumSession.Status.REQUESTED:
+        messages.info(request, "This premium session has already been processed.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    session.status = TaskPremiumSession.Status.DECLINED
+    session.declined_at = timezone.now()
+    session.save(update_fields=["status", "declined_at", "updated_at"])
+
+    TaskNotification.objects.create(
+        recipient=session.student,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="Premium session declined",
+        body=f"Your {session.get_session_type_display().lower()} session request was declined by the tasker.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "session_type": session.session_type,
+        },
+    )
+    messages.success(request, "Premium session declined.")
+    return redirect("marketplace:task_detail", pk=pk)
+
+
+@login_required
+def task_premium_session_checkout_view(request, pk, session_id):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    session = get_object_or_404(TaskPremiumSession, pk=session_id, task=task)
+    role = get_platform_role(request.user)
+
+    if role != "student" or session.student_id != request.user.id:
+        messages.error(request, "You can only pay for your own premium session requests.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    checkout_url = session.checkout_url
+    if not checkout_url:
+        messages.error(request, "The payment link is not ready yet.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    return redirect(checkout_url)
+
+
+def task_premium_session_finalize_view(request, pk, session_id):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    session = get_object_or_404(TaskPremiumSession, pk=session_id, task=task)
+    reference = request.GET.get("reference") or request.GET.get("trxref")
+
+    if not reference:
+        messages.error(request, "Missing payment reference.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    try:
+        verification = verify_transaction(reference)
+        data = verification.get("data", {})
+        if data.get("status") != "success":
+            raise ValueError("Payment was not successful.")
+    except Exception:
+        messages.error(request, "Unable to verify premium session payment.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if session.payment and session.payment.provider_reference and session.payment.provider_reference != reference:
+        messages.error(request, "This payment reference does not match the selected premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    payment = session.payment
+    if payment is None:
+        payment = task.payments.filter(provider_reference=reference, payment_kind=TaskPayment.PaymentKind.PREMIUM_SESSION).first()
+    if payment is None:
+        payment = task.payments.filter(provider_reference=reference).first()
+
+    if payment is None or payment.payment_kind != TaskPayment.PaymentKind.PREMIUM_SESSION:
+        messages.error(request, "No matching premium session payment was found.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if session.payment_id and session.payment_id != payment.id:
+        messages.error(request, "This payment does not belong to the selected premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    session.payment = payment
+    payment.status = TaskPayment.Status.AUTHORIZED
+    payment.escrow_status = "held"
+    payment.provider_reference = payment.provider_reference or reference
+    payment.paid_at = payment.paid_at or timezone.now()
+    payment.metadata = {
+        **(payment.metadata or {}),
+        "verified": True,
+        "verified_at": timezone.now().isoformat(),
+    }
+    payment.save(update_fields=["status", "escrow_status", "provider_reference", "paid_at", "metadata"])
+
+    session.status = TaskPremiumSession.Status.PAID
+    session.paid_at = timezone.now()
+    session.provider_reference = payment.provider_reference
+    session.save(update_fields=["payment", "status", "paid_at", "provider_reference", "updated_at"])
+
+    TaskNotification.objects.create(
+        recipient=session.tasker.user,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="Premium session paid",
+        body=f"{session.student.get_full_name() or session.student.username} completed payment for the premium session.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+            "payment_id": payment.id,
+        },
+    )
+    messages.success(request, "Premium session payment confirmed.")
+    return redirect("marketplace:task_detail", pk=pk)
+
+
+@login_required
+@require_POST
+def task_premium_session_complete_view(request, pk, session_id):
+    task = get_object_or_404(TaskOrder, pk=pk)
+    session = get_object_or_404(TaskPremiumSession, pk=session_id, task=task)
+    role = get_platform_role(request.user)
+    tasker_profile = getattr(request.user, "tasker_profile", None)
+
+    if role not in {"student", "tasker", "manager", "admin"}:
+        messages.error(request, "You do not have permission to complete this session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if role == "tasker" and (tasker_profile is None or session.tasker_id != tasker_profile.id):
+        messages.error(request, "You are not assigned to this premium session.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if role == "student" and session.student_id != request.user.id:
+        messages.error(request, "You can only complete your own premium sessions.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    if session.status != TaskPremiumSession.Status.PAID:
+        messages.error(request, "Premium sessions can only be completed after payment is confirmed.")
+        return redirect("marketplace:task_detail", pk=pk)
+
+    with transaction.atomic():
+        session.status = TaskPremiumSession.Status.COMPLETED
+        session.completed_at = timezone.now()
+        session.save(update_fields=["status", "completed_at", "updated_at"])
+        if session.payment_id:
+            release_payment(
+                task,
+                amount_cents=session.extra_fee_cents,
+                payment_id=session.payment_id,
+                payment_kind=TaskPayment.PaymentKind.PREMIUM_SESSION,
+            )
+
+    TaskNotification.objects.create(
+        recipient=session.student,
+        task=task,
+        channel=TaskNotification.Channel.IN_APP,
+        title="Premium session completed",
+        body=f"Your {session.get_session_type_display().lower()} session has been marked complete.",
+        metadata={
+            "premium_session_id": session.id,
+            "task_id": task.id,
+        },
+    )
+    messages.success(request, "Premium session marked complete and payment released.")
     return redirect("marketplace:task_detail", pk=pk)

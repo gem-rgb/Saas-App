@@ -9,11 +9,12 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-from decouple import config
+from decouple import AutoConfig
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+config = AutoConfig(search_path=BASE_DIR.parent)
 
 # Configure Gmail for Django Emails: https://www.codingforentrepreneurs.com/blog/sending-email-in-django-from-gmail/
 
@@ -154,13 +155,16 @@ DATABASES = {
 }
 
 CONN_MAX_AGE = config("CONN_MAX_AGE", cast=int, default=300)
-DATABASE_URL = config("DATABASE_URL", default=None)
+DATABASE_URL = config("DATABASE_URL", default="")
+DATABASE_URL_CONFIG = DATABASE_URL.strip()
+if not DATABASE_URL_CONFIG:
+    DATABASE_URL = "postgres://placeholder@neon.tech/postgres"
 
-if DATABASE_URL is not None and DATABASE_URL.strip() != "":
+if DATABASE_URL_CONFIG != "":
     import dj_database_url
     DATABASES = {
         "default": dj_database_url.config(
-            default=DATABASE_URL,
+            default=DATABASE_URL_CONFIG,
             conn_max_age=CONN_MAX_AGE,
             conn_health_checks=True,
         )

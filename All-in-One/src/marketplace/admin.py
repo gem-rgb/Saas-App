@@ -10,6 +10,7 @@ from marketplace.models import (
     TaskNotification,
     TaskOrder,
     TaskPayment,
+    TaskPremiumSession,
     TaskRating,
     TaskRevisionRequest,
     TaskStatusEvent,
@@ -78,8 +79,15 @@ class TaskRatingAdmin(admin.ModelAdmin):
 
 @admin.register(TaskPayment)
 class TaskPaymentAdmin(admin.ModelAdmin):
-    list_display = ("task", "amount_cents", "currency", "status", "escrow_status", "created_at")
-    list_filter = ("status", "escrow_status", "currency")
+    list_display = ("task", "payment_kind", "amount_cents", "currency", "status", "escrow_status", "created_at")
+    list_filter = ("payment_kind", "status", "escrow_status", "currency")
+
+
+@admin.register(TaskPremiumSession)
+class TaskPremiumSessionAdmin(admin.ModelAdmin):
+    list_display = ("task", "student", "tasker", "session_type", "status", "extra_fee_cents", "created_at")
+    list_filter = ("session_type", "status", "created_at")
+    search_fields = ("task__title", "student__username", "tasker__user__username", "topic")
 
 
 @admin.register(TaskConversationMessage)

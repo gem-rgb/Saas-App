@@ -6,14 +6,15 @@ from marketplace.models import TaskOrder
 from marketplace.permissions import can_receive_work, get_platform_role
 from marketplace.services import recommend_taskers_for_subject
 from operations.models import EscalationCase
-from subscriptions.utils import subscription_has_feature
+from subscriptions import utils as subs_utils
+from subscriptions.utils import subscription_analytics_access_level, subscription_has_feature
 
 from .models import UserActivity
 
 
 def _has_analytics_access(user):
     role = get_platform_role(user)
-    return role in {"manager", "admin"} or subscription_has_feature(user, "analytics_dashboard")
+    return role in {"manager", "admin"} or subscription_analytics_access_level(user) > 0
 
 
 def _tasks_for_role(user):
@@ -42,6 +43,7 @@ def _tasks_for_role(user):
 @login_required
 def analytics_dashboard_view(request):
     """Assignment insights dashboard with subscription gating."""
+    analytics_access_level = subscription_analytics_access_level(request.user)
     if not _has_analytics_access(request.user):
         return render(
             request,
@@ -72,8 +74,11 @@ def analytics_dashboard_view(request):
 
     focus_task = tasks.first()
     recommended_taskers = []
-    if focus_task is not None:
-        recommended_taskers = recommend_taskers_for_subject(focus_task.subject)[:5]
+    if focus_task is not None and analytics_access_level >= 2:
+        recommended_taskers = recommend_taskers_for_subject(
+            focus_task.subject,
+            matching_mode=subs_utils.subscription_matching_mode(request.user),
+        )[:5]
 
     context = {
         "locked": False,
@@ -81,11 +86,12 @@ def analytics_dashboard_view(request):
         "assignment_health": assignment_health,
         "average_rating": average_rating,
         "average_accuracy": average_accuracy,
-        "recent_tasks": tasks.order_by("-updated_at")[:8],
-        "recent_disputes": EscalationCase.objects.filter(task__in=tasks).select_related("task", "region").order_by("-opened_at")[:6],
+        "recent_tasks": tasks.order_by("-updated_at")[:8] if analytics_access_level >= 2 else [],
+        "recent_disputes": EscalationCase.objects.filter(task__in=tasks).select_related("task", "region").order_by("-opened_at")[:6] if analytics_access_level >= 2 else [],
         "recommended_taskers": recommended_taskers,
         "portal_role": get_platform_role(request.user),
         "focus_subject": focus_task.subject if focus_task else "Academic writing",
+        "analytics_access_level": analytics_access_level,
     }
     return render(request, "analytics/dashboard.html", context)
 

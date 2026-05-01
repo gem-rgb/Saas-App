@@ -59,3 +59,19 @@ def can_receive_work(tasker):
             getattr(tasker, "competency_areas", None) is not None and tasker.competency_areas.exists(),
         ]
     )
+
+
+def tasker_has_active_work(tasker):
+    if tasker is None:
+        return False
+
+    from marketplace.models import TaskOrder
+
+    active_statuses = {
+        TaskOrder.Status.ASSIGNED,
+        TaskOrder.Status.IN_PROGRESS,
+        TaskOrder.Status.QUALITY_REVIEW,
+        TaskOrder.Status.REVISION,
+        TaskOrder.Status.ESCALATED,
+    }
+    return TaskOrder.objects.filter(assigned_tasker=tasker, status__in=active_statuses).exists()

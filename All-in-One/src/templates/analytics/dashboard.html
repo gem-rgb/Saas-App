@@ -52,6 +52,20 @@
         </div>
     </section>
 
+    {% if analytics_access_level < 2 %}
+    <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Advanced analytics</p>
+        <h2 class="mt-3 text-xl font-semibold text-slate-900 dark:text-white">Upgrade for deeper insights</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Pro unlocks recent assignment trends, dispute monitoring, and writer recommendations.
+            Expert adds full-report access and plagiarism reporting.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+            <a href="{% url 'pricing' %}" class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">View plans</a>
+            <a href="{% url 'dashboard:portal-home' %}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Back to portal</a>
+        </div>
+    </section>
+    {% else %}
     <section class="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div class="space-y-6">
             <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -145,6 +159,16 @@
             </div>
         </aside>
     </section>
+    {% if analytics_access_level >= 3 %}
+    <section class="rounded-[2rem] border border-cyan-200 bg-cyan-50/60 p-6 shadow-sm dark:border-cyan-900/40 dark:bg-cyan-950/20">
+        <p class="text-xs font-bold uppercase tracking-[0.28em] text-cyan-700 dark:text-cyan-300">Expert reports</p>
+        <h2 class="mt-3 text-xl font-semibold text-slate-900 dark:text-white">Plagiarism reports and full review history</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Your plan includes detailed verification insights, plagiarism reporting, and the complete quality trail for each assignment.
+        </p>
+    </section>
+    {% endif %}
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

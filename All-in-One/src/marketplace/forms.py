@@ -3,6 +3,7 @@ from django import forms
 from marketplace.models import (
     TaskAttachment,
     TaskOrder,
+    TaskPremiumSession,
     TaskRating,
     TaskRevisionRequest,
     TaskSubmission,
@@ -111,6 +112,31 @@ class TaskRevisionRequestForm(forms.ModelForm):
             "reason": forms.Textarea(attrs={"class": BASE_INPUT, "rows": 4, "placeholder": "Explain what needs revision"}),
             "due_at": forms.DateTimeInput(attrs={"class": BASE_INPUT, "type": "datetime-local"}),
         }
+
+
+class TaskPremiumSessionRequestForm(forms.ModelForm):
+    scheduled_for = forms.DateTimeField(
+        required=False,
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"],
+        widget=forms.DateTimeInput(attrs={"class": BASE_INPUT, "type": "datetime-local"}),
+    )
+
+    class Meta:
+        model = TaskPremiumSession
+        fields = ["session_type", "topic", "scheduled_for", "duration_minutes", "extra_fee_cents", "student_notes"]
+        widgets = {
+            "session_type": forms.Select(attrs={"class": BASE_INPUT}),
+            "topic": forms.TextInput(attrs={"class": BASE_INPUT, "placeholder": "Exam topic, chapter, or revision focus"}),
+            "duration_minutes": forms.NumberInput(attrs={"class": BASE_INPUT, "min": 15, "max": 480}),
+            "extra_fee_cents": forms.NumberInput(attrs={"class": BASE_INPUT, "min": 1000, "placeholder": "Extra fee in cents"}),
+            "student_notes": forms.Textarea(attrs={"class": BASE_INPUT, "rows": 4, "placeholder": "What should the dedicated session cover?"}),
+        }
+
+    def clean_extra_fee_cents(self):
+        value = self.cleaned_data.get("extra_fee_cents") or 0
+        if value < 1000:
+            raise forms.ValidationError("Premium sessions require an extra fee of at least 1000 cents.")
+        return value
 
 
 class TaskRatingForm(forms.ModelForm):

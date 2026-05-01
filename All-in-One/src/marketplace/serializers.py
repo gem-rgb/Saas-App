@@ -9,6 +9,7 @@ from marketplace.models import (
     TaskNotification,
     TaskOrder,
     TaskPayment,
+    TaskPremiumSession,
     TaskRating,
     TaskRevisionRequest,
     TaskStatusEvent,
@@ -104,6 +105,39 @@ class TaskRevisionRequestSerializer(serializers.ModelSerializer):
         fields = ["id", "reason", "status", "due_at", "resolved_at", "resolution_notes", "created_at"]
 
 
+class TaskPremiumSessionSerializer(serializers.ModelSerializer):
+    tasker = TaskerMiniSerializer(read_only=True)
+    display_fee_label = serializers.ReadOnlyField()
+    checkout_url = serializers.ReadOnlyField()
+
+    class Meta:
+        model = TaskPremiumSession
+        fields = [
+            "id",
+            "tasker",
+            "session_type",
+            "topic",
+            "scheduled_for",
+            "duration_minutes",
+            "extra_fee_cents",
+            "currency",
+            "display_fee_label",
+            "status",
+            "student_notes",
+            "tasker_notes",
+            "provider_reference",
+            "accepted_at",
+            "paid_at",
+            "completed_at",
+            "declined_at",
+            "cancelled_at",
+            "checkout_url",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+
+
 class TaskRatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskRating
@@ -123,6 +157,7 @@ class TaskPaymentSerializer(serializers.ModelSerializer):
         model = TaskPayment
         fields = [
             "id",
+            "payment_kind",
             "amount_cents",
             "currency",
             "provider",
@@ -154,6 +189,7 @@ class TaskOrderSerializer(serializers.ModelSerializer):
     attachments = TaskAttachmentSerializer(many=True, read_only=True)
     match_suggestions = TaskMatchSuggestionSerializer(many=True, read_only=True)
     submissions = TaskSubmissionSerializer(many=True, read_only=True)
+    premium_sessions = TaskPremiumSessionSerializer(many=True, read_only=True)
     status_events = TaskStatusEventSerializer(many=True, read_only=True)
     ratings = TaskRatingSerializer(many=True, read_only=True)
     payments = TaskPaymentSerializer(many=True, read_only=True)
@@ -205,6 +241,7 @@ class TaskOrderSerializer(serializers.ModelSerializer):
             "match_suggestions",
             "submissions",
             "status_events",
+            "premium_sessions",
             "ratings",
             "payments",
             "notifications",

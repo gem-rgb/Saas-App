@@ -2,6 +2,8 @@
 Management command to seed default subscription plans.
 Usage: python manage.py seed_plans
 """
+from decimal import Decimal
+
 from django.core.management.base import BaseCommand
 
 from subscriptions.models import Subscription, SubscriptionPrice
@@ -10,14 +12,15 @@ from subscriptions.models import Subscription, SubscriptionPrice
 PLANS = [
     {
         "name": "Essential",
-        "subtitle": "For students who want clean assignment support and subject-based writer suggestions.",
+        "subtitle": "For students who need help with occasional assignments.",
         "order": 1,
-        "features": "Up to 3 active assignments\nSubject-based writer recommendations\nAssignment tracking\nEmail support\nBasic subscription access",
+        "features": "Up to 3 active tasks\nStandard matching\nEmail support\n48-hour turnaround\nBasic analytics",
         "feature_codes": [
-            "task_creation",
-            "subject_recommendations",
-            "task_tracking",
-            "basic_support",
+            "active_tasks_3",
+            "standard_matching",
+            "email_support",
+            "turnaround_48h",
+            "basic_analytics",
         ],
         "prices": {
             "month": "9.99",
@@ -26,17 +29,16 @@ PLANS = [
     },
     {
         "name": "Pro",
-        "subtitle": "For students and taskers who need live routing, chat, and richer workflow controls.",
+        "subtitle": "For busy students who need consistent, reliable academic help.",
         "order": 2,
-        "features": "Up to 10 active assignments\nLive marketplace access\nPriority matching\nIn-app task chat\nRevision requests\nAssignment analytics",
+        "features": "Up to 10 active tasks\nPriority matching\nLive chat support\n24-hour turnaround\nAdvanced analytics\nRevision guarantee",
         "feature_codes": [
-            "task_creation",
-            "subject_recommendations",
-            "live_marketplace",
+            "active_tasks_10",
             "priority_matching",
-            "task_chat",
-            "revision_requests",
-            "analytics_dashboard",
+            "live_chat_support",
+            "turnaround_24h",
+            "advanced_analytics",
+            "revision_guarantee",
         ],
         "prices": {
             "month": "29.99",
@@ -45,18 +47,18 @@ PLANS = [
     },
     {
         "name": "Expert",
-        "subtitle": "For teams that need manager oversight, dispute handling, and premium reporting.",
+        "subtitle": "Unlimited access with premium exam sessions and priority support.",
         "order": 3,
-        "features": "Unlimited active assignments\nDedicated manager console\nDispute resolution and refunds\nPriority support\nFull analytics dashboard\nPlagiarism and quality reports",
+        "features": "Unlimited active tasks\nPriority matching\nPriority phone support\n12-hour turnaround\nFull analytics dashboard\nUnlimited revisions\nPlagiarism reports\nPremium exam sessions",
         "feature_codes": [
-            "task_creation",
-            "subject_recommendations",
-            "live_marketplace",
-            "manager_console",
-            "dispute_resolution",
-            "refund_management",
-            "analytics_dashboard",
-            "quality_reports",
+            "active_tasks_unlimited",
+            "priority_matching",
+            "priority_phone_support",
+            "turnaround_12h",
+            "full_analytics_dashboard",
+            "unlimited_revisions",
+            "plagiarism_reports",
+            "premium_sessions",
         ],
         "prices": {
             "month": "79.99",
@@ -128,6 +130,21 @@ class Command(BaseCommand):
                         "paystack_id": f"plan_local_{plan_data['name'].lower()}_{interval}",
                     },
                 )
+                changed_fields = []
+                if sp.price != Decimal(price_val):
+                    sp.price = Decimal(price_val)
+                    changed_fields.append("price")
+                if sp.order != plan_data["order"]:
+                    sp.order = plan_data["order"]
+                    changed_fields.append("order")
+                if sp.featured is not True:
+                    sp.featured = True
+                    changed_fields.append("featured")
+                if not sp.paystack_id:
+                    sp.paystack_id = f"plan_local_{plan_data['name'].lower()}_{interval}"
+                    changed_fields.append("paystack_id")
+                if changed_fields:
+                    sp.save(update_fields=changed_fields + ["updated"])
                 sp_verb = "Created" if sp_created else "Already exists"
                 self.stdout.write(f"    {sp_verb}: ${price_val}/{interval}")
 
