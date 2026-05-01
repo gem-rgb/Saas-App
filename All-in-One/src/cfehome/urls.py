@@ -60,6 +60,7 @@ urlpatterns = [
     path("marketplace/", include("marketplace.urls")),
     path("trust/", include("trust.urls")),
     path("operations/", include("operations.urls")),
+    path("staff/login/", auth_views.staff_login_view, name="staff_login"),
     # Account & Billing
     *social_login_patterns,
     path('accounts/billing/', subscriptions_views.user_subscription_view, name='user_subscription'),

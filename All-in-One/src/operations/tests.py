@@ -1,10 +1,15 @@
+import shutil
+import tempfile
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from assignments.models import Assignment, AssignmentSubmission, TaskerProfile
 from auth.models import UserRole
-from operations.models import ManagerProfile
+from auth.permissions import portal_url_for_user
+from operations.models import ManagerApplication, ManagerProfile
 from marketplace.models import TaskOrder, TaskSubmission
 
 
@@ -118,3 +123,80 @@ class PlagiarismReviewViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Plagiarism Review")
         self.assertContains(response, assignment.title)
+
+
+@override_settings(
+    STORAGES={
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        }
+    }
+)
+class ManagerOnboardingFlowTests(TestCase):
+    def setUp(self):
+        self.user_model = get_user_model()
+        self.manager = self.user_model.objects.create_user(
+            username="manager-candidate",
+            email="manager-candidate@example.com",
+            password="testpass123",
+        )
+        UserRole.objects.create(user=self.manager, role_type=UserRole.RoleType.MANAGER)
+        self.admin = self.user_model.objects.create_superuser(
+            username="admin-user",
+            email="admin-user@example.com",
+            password="testpass123",
+        )
+        self.media_root = tempfile.mkdtemp(prefix="manager-onboarding-")
+        self.addCleanup(shutil.rmtree, self.media_root, ignore_errors=True)
+
+    def _files(self):
+        return {
+            "cv_file": SimpleUploadedFile("manager-cv.pdf", b"cv-bytes", content_type="application/pdf"),
+            "selfie_file": SimpleUploadedFile("selfie.png", b"selfie-bytes", content_type="image/png"),
+            "id_front_file": SimpleUploadedFile("id-front.png", b"id-front-bytes", content_type="image/png"),
+            "id_back_file": SimpleUploadedFile("id-back.png", b"id-back-bytes", content_type="image/png"),
+        }
+
+    def test_manager_onboarding_submits_cv_and_kyc_for_admin_review(self):
+        self.client.force_login(self.manager)
+
+        with self.settings(MEDIA_ROOT=self.media_root):
+            response = self.client.get(reverse("operations:manager-onboarding"))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Manager onboarding")
+            self.assertEqual(portal_url_for_user(self.manager), reverse("operations:manager-onboarding"))
+
+            response = self.client.post(
+                reverse("operations:manager-onboarding"),
+                {
+                    "title": "Regional Manager",
+                    "bio": "Operations lead with field review experience.",
+                    "years_experience": 5,
+                    **self._files(),
+                },
+                follow=True,
+            )
+
+            self.assertEqual(response.status_code, 200)
+            application = ManagerApplication.objects.get(user=self.manager)
+            self.assertEqual(application.status, ManagerApplication.Status.SUBMITTED)
+            self.assertTrue(application.cv_file.name)
+            self.assertContains(response, "Manager onboarding submitted")
+
+            self.client.force_login(self.admin)
+            approve_response = self.client.post(
+                reverse("operations:manager-application-review", args=[application.pk]),
+                {
+                    "action": "approve",
+                    "decision_reason": "Approved after CV and KYC review.",
+                },
+                follow=True,
+            )
+
+            self.assertEqual(approve_response.status_code, 200)
+            application.refresh_from_db()
+            self.assertEqual(application.status, ManagerApplication.Status.APPROVED)
+            self.assertIsNotNone(application.reviewed_by)
+            self.assertEqual(application.reviewed_by, self.admin)
+            self.assertTrue(ManagerProfile.objects.filter(user=self.manager, active=True).exists())
+            self.assertEqual(portal_url_for_user(self.manager), reverse("operations:dashboard"))

@@ -14,7 +14,6 @@ from auth.models import Permission, RolePermissionTemplate, UserRole
 PUBLIC_ROLE_TYPES = (
     UserRole.RoleType.STUDENT,
     UserRole.RoleType.TASKER,
-    UserRole.RoleType.MANAGER,
 )
 
 
@@ -33,10 +32,44 @@ def social_provider_enabled(provider_name):
     return SocialApp.objects.filter(provider=provider_name).exists()
 
 
+def manager_portal_ready(user):
+    """Return True when a manager has completed admin-vetted onboarding."""
+    if not user or not user.is_authenticated:
+        return False
+
+    user_role = UserRole.objects.filter(user=user).first()
+    if user_role is None:
+        if getattr(user, "manager_profile", None) is not None or getattr(user, "manager_application", None) is not None:
+            user_role = get_user_role(user)
+        else:
+            return False
+
+    if user_role.role_type != UserRole.RoleType.MANAGER:
+        return False
+
+    manager_profile = getattr(user, "manager_profile", None)
+    application = getattr(user, "manager_application", None)
+
+    if application is not None:
+        try:
+            approved = application.status == application.Status.APPROVED
+        except Exception:
+            approved = False
+        if not approved:
+            return False
+        if manager_profile is None:
+            return True
+        return bool(getattr(manager_profile, "active", False))
+
+    return bool(manager_profile is not None and getattr(manager_profile, "active", False))
+
+
 def _guess_role_type(user):
     if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
         return UserRole.RoleType.ADMIN
     if hasattr(user, "manager_profile"):
+        return UserRole.RoleType.MANAGER
+    if hasattr(user, "manager_application"):
         return UserRole.RoleType.MANAGER
     if hasattr(user, "tasker_profile"):
         return UserRole.RoleType.TASKER
@@ -63,13 +96,16 @@ def get_user_role(user):
 def has_role(user, role_type):
     """Check if user has a specific role."""
     user_role = get_user_role(user)
-    return bool(user_role and user_role.role_type == role_type)
+    if not user_role or user_role.role_type != role_type:
+        return False
+    if role_type == UserRole.RoleType.MANAGER:
+        return manager_portal_ready(user)
+    return True
 
 
 def has_any_role(user, role_types):
     """Check if user has any of the specified roles."""
-    user_role = get_user_role(user)
-    return bool(user_role and user_role.role_type in role_types)
+    return any(has_role(user, role_type) for role_type in role_types)
 
 
 def is_student(user):
@@ -123,7 +159,7 @@ def portal_route_name_for_role(role_type):
     mapping = {
         UserRole.RoleType.STUDENT: "dashboard:student-dashboard",
         UserRole.RoleType.TASKER: "dashboard:tasker-dashboard",
-        UserRole.RoleType.MANAGER: "dashboard:manager-dashboard",
+        UserRole.RoleType.MANAGER: "operations:dashboard",
         UserRole.RoleType.ADMIN: "dashboard:admin-dashboard",
     }
     return mapping.get(role_type, "dashboard:portal-home")
@@ -150,6 +186,8 @@ def portal_url_for_user(user):
 
         if not can_receive_work(tasker_profile) and not has_active_work:
             return reverse("trust:onboarding")
+    if role_type == UserRole.RoleType.MANAGER and not manager_portal_ready(user):
+        return reverse("operations:manager-onboarding")
     return portal_url_for_role(role_type)
 
 
@@ -321,7 +359,10 @@ def get_role_context(user):
             "role_display": None,
             "portal_dashboard_url": reverse("dashboard:portal-home"),
             "tasker_onboarding_url": reverse("trust:onboarding"),
+            "manager_onboarding_url": reverse("operations:manager-onboarding"),
+            "staff_login_url": reverse("staff_login"),
             "tasker_portal_ready": False,
+            "manager_portal_ready": False,
             "is_student": False,
             "is_tasker": False,
             "is_manager": False,
@@ -341,22 +382,25 @@ def get_role_context(user):
 
         tasker_portal_ready = tasker_application.status == "approved" and can_receive_work(tasker_profile)
 
+    manager_portal_ready_value = manager_portal_ready(user)
+
     return {
         "portal_role": role_type,
         "role_display": user_role.get_role_type_display(),
         "portal_dashboard_url": portal_url_for_user(user),
         "tasker_onboarding_url": reverse("trust:onboarding"),
+        "manager_onboarding_url": reverse("operations:manager-onboarding"),
+        "staff_login_url": reverse("staff_login"),
         "tasker_portal_ready": tasker_portal_ready,
+        "manager_portal_ready": manager_portal_ready_value,
         "is_student": role_type == UserRole.RoleType.STUDENT,
         "is_tasker": role_type == UserRole.RoleType.TASKER,
-        "is_manager": role_type == UserRole.RoleType.MANAGER,
+        "is_manager": manager_portal_ready_value,
         "is_admin": role_type == UserRole.RoleType.ADMIN,
         "can_view_marketplace": can_view_marketplace(user),
-        "can_verify_assignments": role_type
-        in [UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN],
+        "can_verify_assignments": can_verify_assignments(user),
         "can_browse_chat": True,
-        "can_upload_assignments": role_type
-        in [UserRole.RoleType.TASKER, UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN],
+        "can_upload_assignments": can_upload_assignments(user),
     }
 
 

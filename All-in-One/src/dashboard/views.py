@@ -3,12 +3,12 @@ from django.db.models import Avg, Count, Sum
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from auth.permissions import portal_url_for_user, require_admin, require_manager, require_student, require_tasker
+from auth.permissions import portal_url_for_user, require_admin, require_student, require_tasker
 from marketplace.models import TaskNotification, TaskOrder
 from marketplace.permissions import can_receive_work, get_platform_role, tasker_has_active_work
 from marketplace.services import recommend_task_rows_for_tasker, recommend_taskers_for_subject
 from assignments.models import TaskerProfile
-from operations.models import EscalationCase, Region
+from operations.models import EscalationCase, ManagerApplication, Region
 from subscriptions.models import UserSubscription
 from subscriptions import utils as subs_utils
 from trust.models import TaskerApplication
@@ -218,6 +218,13 @@ def _admin_context():
             TaskerApplication.Status.UNDER_REVIEW,
         ]
     ).select_related("applicant", "region_preference")
+    pending_manager_applications = ManagerApplication.objects.filter(
+        status__in=[
+            ManagerApplication.Status.SUBMITTED,
+            ManagerApplication.Status.UNDER_REVIEW,
+            ManagerApplication.Status.NEEDS_INFO,
+        ]
+    ).select_related("user", "reviewed_by").prefetch_related("regions")
 
     open_tasks = TaskOrder.objects.filter(
         status__in=[
@@ -232,6 +239,9 @@ def _admin_context():
 
     return {
         "admin_applications": pending_applications[:8],
+        "admin_application_count": pending_applications.count(),
+        "admin_manager_applications": pending_manager_applications[:8],
+        "admin_manager_application_count": pending_manager_applications.count(),
         "admin_open_tasks": open_tasks[:8],
         "admin_open_count": open_tasks.count(),
         "admin_completion_count": TaskOrder.objects.filter(status=TaskOrder.Status.COMPLETED).count(),
@@ -259,7 +269,7 @@ def _dashboard_context(request, forced_role=None):
         "student": "Create assignments and view the best writers for each subject.",
         "tasker": "Track your queue, quality, and assigned assignments.",
         "manager": "Resolve disputes, review taskers, and manage quality issues.",
-        "admin": "Monitor the platform from one control surface.",
+        "admin": "Review taskers and manager applications from one control surface.",
     }.get(role, "Assignment workflow")
 
     if role == "student":
@@ -294,10 +304,9 @@ def tasker_dashboard_view(request):
     return render(request, "dashboard/main.html", _dashboard_context(request, "tasker"))
 
 
-@require_manager
 @login_required
 def manager_dashboard_view(request):
-    return render(request, "dashboard/main.html", _dashboard_context(request, "manager"))
+    return redirect(portal_url_for_user(request.user))
 
 
 @require_admin

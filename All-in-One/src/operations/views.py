@@ -10,12 +10,21 @@ from django.views.decorators.http import require_POST
 
 from agents.verification_service import run_assignment_verification
 from auth.models import UserRole
-from auth.permissions import require_any_role
+from auth.permissions import get_user_role, manager_portal_ready, portal_url_for_user, require_admin, require_any_role
 from assignments.models import AssignmentSubmission, TaskerProfile
+from operations.forms import ManagerApplicationForm
 from marketplace.models import TaskAuditEvent, TaskOrder, TaskPayment, TaskSubmission
 from marketplace.permissions import get_platform_role
 from marketplace.services import queue_notification
-from operations.models import EscalationCase, ManagerProfile, QualityAudit, Region, RegionalAssignment, TaskerPerformanceSnapshot
+from operations.models import (
+    EscalationCase,
+    ManagerApplication,
+    ManagerProfile,
+    QualityAudit,
+    Region,
+    RegionalAssignment,
+    TaskerPerformanceSnapshot,
+)
 
 
 @require_any_role(UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN)
@@ -63,6 +72,146 @@ def manager_dashboard_view(request):
             "low_accuracy_taskers": low_accuracy_taskers,
             "summary": summary,
             "portal_role": get_platform_role(request.user),
+        },
+    )
+
+
+def _require_manager_candidate(request):
+    user_role = UserRole.objects.filter(user=request.user).first()
+    if user_role is None and (
+        getattr(request.user, "manager_profile", None) is not None
+        or getattr(request.user, "manager_application", None) is not None
+    ):
+        user_role = get_user_role(request.user)
+    if not user_role or user_role.role_type != UserRole.RoleType.MANAGER:
+        messages.error(request, "Manager onboarding is only available to manager accounts.")
+        return False
+    return True
+
+
+@login_required
+def manager_onboarding_view(request):
+    if not _require_manager_candidate(request):
+        return redirect(portal_url_for_user(request.user))
+    if manager_portal_ready(request.user):
+        return redirect("operations:dashboard")
+
+    application, _ = ManagerApplication.objects.get_or_create(user=request.user)
+    if application.status == ManagerApplication.Status.APPROVED and getattr(request.user, "manager_profile", None):
+        if getattr(request.user.manager_profile, "active", False):
+            return redirect("operations:dashboard")
+
+    if request.method == "POST":
+        form = ManagerApplicationForm(request.POST, request.FILES, instance=application)
+        if form.is_valid():
+            application = form.save(commit=False)
+            application.user = request.user
+            application.status = ManagerApplication.Status.SUBMITTED
+            application.reviewed_by = None
+            application.reviewed_at = None
+            application.decision_reason = "Submitted by manager and awaiting admin review."
+            application.save()
+            form.save_m2m()
+            messages.success(request, "Manager onboarding submitted. An admin will review your CV and KYC documents.")
+            return redirect("operations:manager-onboarding")
+    else:
+        form = ManagerApplicationForm(instance=application)
+
+    return render(
+        request,
+        "operations/manager_onboarding.html",
+        {
+            "application": application,
+            "form": form,
+            "portal_url": portal_url_for_user(request.user),
+            "review_status": application.get_status_display(),
+            "kyc_file_count": sum(
+                1
+                for field_name in ["selfie_file", "id_front_file", "id_back_file"]
+                if getattr(application, field_name)
+            ),
+        },
+    )
+
+
+@require_admin
+@login_required
+def manager_application_review_view(request, pk):
+    application = get_object_or_404(
+        ManagerApplication.objects.select_related("user", "reviewed_by").prefetch_related("regions"),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action", "").strip()
+        decision_reason = request.POST.get("decision_reason", "").strip()
+
+        if action == "approve":
+            profile, _ = ManagerProfile.objects.get_or_create(user=application.user)
+            profile.title = application.title or profile.title
+            profile.active = True
+            profile.can_reassign_tasks = True
+            profile.can_review_applications = True
+            profile.save()
+            profile.regions.set(application.regions.all())
+
+            application.status = ManagerApplication.Status.APPROVED
+            application.reviewed_by = request.user
+            application.reviewed_at = timezone.now()
+            application.decision_reason = decision_reason or "Approved by admin."
+            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "decision_reason", "updated_at"])
+
+            user_role, _ = UserRole.objects.get_or_create(
+                user=application.user,
+                defaults={"role_type": UserRole.RoleType.MANAGER, "verified": True},
+            )
+            if user_role.role_type != UserRole.RoleType.MANAGER:
+                user_role.role_type = UserRole.RoleType.MANAGER
+            user_role.verified = True
+            user_role.save(update_fields=["role_type", "verified", "updated_at"])
+
+            messages.success(request, f"{application.user.username} approved as a manager.")
+        elif action == "reject":
+            profile = getattr(application.user, "manager_profile", None)
+            if profile is not None:
+                profile.active = False
+                profile.save(update_fields=["active", "updated_at"])
+
+            application.status = ManagerApplication.Status.REJECTED
+            application.reviewed_by = request.user
+            application.reviewed_at = timezone.now()
+            application.decision_reason = decision_reason or "Rejected by admin."
+            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "decision_reason", "updated_at"])
+
+            user_role, _ = UserRole.objects.get_or_create(
+                user=application.user,
+                defaults={"role_type": UserRole.RoleType.MANAGER, "verified": False},
+            )
+            user_role.verified = False
+            if user_role.role_type != UserRole.RoleType.MANAGER:
+                user_role.role_type = UserRole.RoleType.MANAGER
+            user_role.save(update_fields=["role_type", "verified", "updated_at"])
+
+            messages.warning(request, f"{application.user.username} rejected.")
+        elif action == "needs_info":
+            application.status = ManagerApplication.Status.NEEDS_INFO
+            application.reviewed_by = request.user
+            application.reviewed_at = timezone.now()
+            application.decision_reason = decision_reason or "Additional information required."
+            application.save(update_fields=["status", "reviewed_by", "reviewed_at", "decision_reason", "updated_at"])
+            messages.info(request, f"Requested more information from {application.user.username}.")
+        else:
+            messages.error(request, "Choose a valid review action.")
+            return redirect("operations:manager-application-review", pk=pk)
+
+        return redirect("dashboard:admin-dashboard")
+
+    return render(
+        request,
+        "operations/manager_review.html",
+        {
+            "application": application,
+            "portal_url": portal_url_for_user(request.user),
         },
     )
 

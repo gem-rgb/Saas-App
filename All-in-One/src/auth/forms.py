@@ -6,7 +6,6 @@ from auth.models import UserRole
 PUBLIC_ROLE_CHOICES = [
     (UserRole.RoleType.STUDENT, "Student"),
     (UserRole.RoleType.TASKER, "Tasker"),
-    (UserRole.RoleType.MANAGER, "Manager"),
 ]
 
 
@@ -45,7 +44,3 @@ class RoleSignupForm(forms.Form):
                 user=user,
                 defaults={"skills": ""},
             )
-        elif role == UserRole.RoleType.MANAGER:
-            from operations.models import ManagerProfile
-
-            ManagerProfile.objects.get_or_create(user=user)

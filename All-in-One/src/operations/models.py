@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -21,6 +22,56 @@ class Region(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ManagerApplication(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under Review"
+        NEEDS_INFO = "needs_info", "Needs More Info"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="manager_application")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    title = models.CharField(max_length=120, default="Regional Manager")
+    bio = models.TextField(blank=True, default="")
+    years_experience = models.PositiveIntegerField(default=0)
+    regions = models.ManyToManyField(Region, blank=True, related_name="manager_applications")
+    cv_file = models.FileField(
+        upload_to="operations/managers/cv/%Y/%m/%d/",
+        validators=[FileExtensionValidator(allowed_extensions=["pdf", "doc", "docx"])],
+    )
+    selfie_file = models.FileField(
+        upload_to="operations/managers/kyc/%Y/%m/%d/",
+        validators=[FileExtensionValidator(allowed_extensions=["png", "jpg", "jpeg", "webp", "pdf"])],
+    )
+    id_front_file = models.FileField(
+        upload_to="operations/managers/kyc/%Y/%m/%d/",
+        validators=[FileExtensionValidator(allowed_extensions=["png", "jpg", "jpeg", "webp", "pdf"])],
+    )
+    id_back_file = models.FileField(
+        upload_to="operations/managers/kyc/%Y/%m/%d/",
+        validators=[FileExtensionValidator(allowed_extensions=["png", "jpg", "jpeg", "webp", "pdf"])],
+    )
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_manager_applications",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    decision_reason = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} ({self.get_status_display()})"
 
 
 class ManagerProfile(models.Model):

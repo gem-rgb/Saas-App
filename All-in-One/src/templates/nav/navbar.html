@@ -35,10 +35,14 @@
           {% endif %}
           <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
           {% elif portal_role == "manager" %}
+          {% if manager_portal_ready %}
           <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignments</a></li>
           <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
           <li><a href="{% url 'operations:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Operations</a></li>
           <li><a href="{% url 'analytics_dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignment Insights</a></li>
+          {% else %}
+          <li><a href="{{ manager_onboarding_url }}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Manager onboarding</a></li>
+          {% endif %}
           {% else %}
           <li><a href="{% url 'marketplace:board' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Assignments</a></li>
           <li><a href="{% url 'trust:dashboard' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Trust</a></li>
@@ -53,6 +57,7 @@
           <li><a href="{% url 'pricing' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Pricing</a></li>
           <li><a href="{% url 'contact' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Contact</a></li>
           <li><a href="{% url 'account_signup' %}" class="inline-flex items-center justify-center rounded-full bg-cyan-600 px-4 py-2 text-white">Sign Up</a></li>
+          <li><a href="{{ staff_login_url }}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Staff Login</a></li>
           <li><a href="{% url 'account_login' %}" class="block rounded-lg px-3 py-2 text-slate-700 hover:text-cyan-600 dark:text-slate-200">Login</a></li>
           {% endif %}
         </ul>

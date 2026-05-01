@@ -7,6 +7,8 @@ app_name = "operations"
 
 urlpatterns = [
     path("", views.manager_dashboard_view, name="dashboard"),
+    path("onboarding/", views.manager_onboarding_view, name="manager-onboarding"),
+    path("managers/<int:pk>/review/", views.manager_application_review_view, name="manager-application-review"),
     path("plagiarism/<slug:source>/<int:submission_id>/", views.plagiarism_review_view, name="plagiarism_review"),
     path("regions/<slug:code>/", views.region_dashboard_view, name="region_dashboard"),
     path("taskers/<int:tasker_id>/", views.tasker_performance_view, name="tasker_performance"),

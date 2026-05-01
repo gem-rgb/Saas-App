@@ -15,7 +15,7 @@
                 <span class="text-2xl font-bold gradient-text">SaaS</span>
             </a>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create your account</h1>
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Start your free trial today</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Start as a student or tasker. Manager access is issued by the admin team after review.</p>
         </div>
 
         <!-- Card -->
@@ -68,13 +68,12 @@
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Manage your own tasks, track activity, and stay in the student workspace.</p>
                                 {% elif value == "tasker" %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400">Browse the marketplace, chat with students, and upload completed work for AI verification.</p>
-                                {% elif value == "manager" %}
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Review submissions, verify quality, and manage operational oversight.</p>
                                 {% endif %}
                             </div>
                         </label>
                         {% endfor %}
                     </div>
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Managers cannot self-register. Admins provision manager accounts after CV and KYC review.</p>
                     {% if form.role.errors %}
                     <p class="mt-1 text-xs text-red-500">{{ form.role.errors.0 }}</p>
                     {% endif %}
@@ -115,6 +114,8 @@
         <!-- Footer -->
         <p class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Already have an account? <a href="{% url 'account_login' %}" class="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">Sign in</a>
+            <span class="mx-1">·</span>
+            Staff login <a href="{{ staff_login_url }}" class="font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">here</a>
         </p>
     </div>
 </section>

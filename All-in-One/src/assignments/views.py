@@ -11,7 +11,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 
 from auth.models import UserRole
-from auth.permissions import get_user_role, require_any_role, require_student, require_tasker
+from auth.permissions import get_user_role, manager_portal_ready, require_any_role, require_student, require_tasker
 from agents.verification_service import run_assignment_verification
 from agents.rubric_utils import normalize_rubric
 from trust.models import TaskerApplication
@@ -39,7 +39,9 @@ def _assignment_queryset_for_user(user):
             return queryset.none()
         return queryset.filter(assigned_to=tasker_profile)
 
-    if role_type in (UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN):
+    if role_type == UserRole.RoleType.ADMIN or (
+        role_type == UserRole.RoleType.MANAGER and manager_portal_ready(user)
+    ):
         return queryset
 
     return queryset.filter(creator=user)
@@ -52,7 +54,9 @@ def _assignment_verification_rubric(assignment):
 def _has_plagiarism_report_access(user):
     user_role = get_user_role(user)
     role_type = user_role.role_type if user_role else UserRole.RoleType.STUDENT
-    if role_type in {UserRole.RoleType.MANAGER, UserRole.RoleType.ADMIN}:
+    if role_type == UserRole.RoleType.ADMIN or (
+        role_type == UserRole.RoleType.MANAGER and manager_portal_ready(user)
+    ):
         return True
     return subscription_has_feature(user, "plagiarism_reports") or subscription_has_feature(user, "quality_reports")
 

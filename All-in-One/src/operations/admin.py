@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from operations.models import EscalationCase, ManagerProfile, QualityAudit, Region, RegionalAssignment, TaskerPerformanceSnapshot
+from operations.models import (
+    EscalationCase,
+    ManagerApplication,
+    ManagerProfile,
+    QualityAudit,
+    Region,
+    RegionalAssignment,
+    TaskerPerformanceSnapshot,
+)
 
 
 @admin.register(Region)
@@ -15,6 +23,15 @@ class ManagerProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "title", "active", "escalation_limit")
     list_filter = ("active",)
     search_fields = ("user__username", "user__email", "title")
+    filter_horizontal = ("regions",)
+
+
+@admin.register(ManagerApplication)
+class ManagerApplicationAdmin(admin.ModelAdmin):
+    list_display = ("user", "status", "title", "reviewed_by", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("user__username", "user__email", "title", "bio")
+    readonly_fields = ("created_at", "updated_at", "reviewed_at")
     filter_horizontal = ("regions",)
 
 
@@ -43,4 +60,3 @@ class TaskerPerformanceSnapshotAdmin(admin.ModelAdmin):
     list_display = ("tasker", "region", "ranking_score", "quality_rating", "on_time_rate", "fraud_risk_score", "period_end")
     list_filter = ("region", "period_end")
     search_fields = ("tasker__user__username",)
-

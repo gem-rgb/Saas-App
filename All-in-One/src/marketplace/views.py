@@ -59,6 +59,8 @@ def _task_queryset_for_user(user):
     role = get_platform_role(user)
     if role == "admin":
         return base
+    if role == "manager_pending":
+        return base.none()
     if role == "manager":
         return base.filter(Q(status__in=[TaskOrder.Status.OPEN, TaskOrder.Status.ASSIGNED, TaskOrder.Status.IN_PROGRESS, TaskOrder.Status.QUALITY_REVIEW, TaskOrder.Status.REVISION, TaskOrder.Status.ESCALATED]))
     if role == "tasker":
@@ -119,6 +121,8 @@ def _task_detail_access_level(task, user):
         return "none"
 
     role = get_platform_role(user)
+    if role == "manager_pending":
+        return "none"
     if role in {"manager", "admin"}:
         return "full"
 
@@ -324,6 +328,9 @@ def _premium_session_queryset_for_user(task, user):
 @login_required
 def board_view(request):
     role = get_platform_role(request.user)
+    if role == "manager_pending":
+        messages.info(request, "Complete manager onboarding before opening the operations board.")
+        return redirect("operations:manager-onboarding")
     if role == "tasker":
         tasker_profile = getattr(request.user, "tasker_profile", None)
         if not can_receive_work(tasker_profile) and not tasker_has_active_work(tasker_profile):

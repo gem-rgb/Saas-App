@@ -2,7 +2,7 @@ from functools import wraps
 
 from django.contrib.auth.decorators import user_passes_test
 
-from auth.permissions import get_user_role
+from auth.permissions import get_user_role, manager_portal_ready
 
 
 ROLE_GROUPS = {
@@ -19,6 +19,8 @@ def get_platform_role(user):
 
     user_role = get_user_role(user)
     if user_role:
+        if user_role.role_type == "manager" and not manager_portal_ready(user):
+            return "manager_pending"
         return user_role.role_type
 
     return "student"

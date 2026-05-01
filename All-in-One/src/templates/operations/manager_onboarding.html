@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block head_title %}Manager Onboarding{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-600 dark:text-cyan-400">Staff access</p>
+        <h1 class="mt-2 text-4xl font-bold text-slate-950 dark:text-white">Manager onboarding</h1>
+        <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Upload a CV and KYC documents so an admin can vet your manager account. You stay in onboarding until the review is approved.
+        </p>
+      </div>
+      <a href="{{ portal_url }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-cyan-700 dark:hover:text-cyan-300">
+        Open portal
+      </a>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        {% if messages %}
+        <div class="mb-6 space-y-3">
+          {% for message in messages %}
+          <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800 dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-200">
+            {{ message }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Status</p>
+            <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{{ review_status }}</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">CV</p>
+            <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{% if application.cv_file %}Attached{% else %}Missing{% endif %}</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">KYC files</p>
+            <p class="mt-2 text-2xl font-bold text-slate-950 dark:text-white">{{ kyc_file_count|default:0 }} uploaded</p>
+          </div>
+        </div>
+
+        {% if application.decision_reason %}
+        <div class="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <p class="font-semibold">Admin note</p>
+          <p class="mt-2">{{ application.decision_reason }}</p>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="mt-6 space-y-6">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+            {% for error in form.non_field_errors %}
+            <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.title.id_for_label }}">Title</label>
+              {{ form.title }}
+              {% if form.title.errors %}<p class="text-xs text-red-500">{{ form.title.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.years_experience.id_for_label }}">Years of experience</label>
+              {{ form.years_experience }}
+              {% if form.years_experience.errors %}<p class="text-xs text-red-500">{{ form.years_experience.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.bio.id_for_label }}">Bio</label>
+            {{ form.bio }}
+            {% if form.bio.errors %}<p class="text-xs text-red-500">{{ form.bio.errors.0 }}</p>{% endif %}
+          </div>
+
+          <div class="space-y-2">
+            <div>
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.regions.id_for_label }}">Regions</label>
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Select the regions you can support after approval.</p>
+            </div>
+            <div class="grid gap-3 rounded-3xl border border-slate-200 p-4 dark:border-slate-800">
+              {{ form.regions }}
+            </div>
+            {% if form.regions.errors %}<p class="text-xs text-red-500">{{ form.regions.errors.0 }}</p>{% endif %}
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.cv_file.id_for_label }}">CV / Resume</label>
+              {{ form.cv_file }}
+              {% if form.cv_file.errors %}<p class="text-xs text-red-500">{{ form.cv_file.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.selfie_file.id_for_label }}">Selfie</label>
+              {{ form.selfie_file }}
+              {% if form.selfie_file.errors %}<p class="text-xs text-red-500">{{ form.selfie_file.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.id_front_file.id_for_label }}">ID front</label>
+              {{ form.id_front_file }}
+              {% if form.id_front_file.errors %}<p class="text-xs text-red-500">{{ form.id_front_file.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="{{ form.id_back_file.id_for_label }}">ID back</label>
+              {{ form.id_back_file }}
+              {% if form.id_back_file.errors %}<p class="text-xs text-red-500">{{ form.id_back_file.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-500">
+              Submit for admin review
+            </button>
+            <p class="text-sm text-slate-500 dark:text-slate-400">The admin team is the only group that can approve manager access.</p>
+          </div>
+        </form>
+      </section>
+
+      <aside class="space-y-6">
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-950 dark:text-white">Review path</h2>
+          <ol class="mt-4 space-y-4 text-sm text-slate-600 dark:text-slate-400">
+            <li class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="font-semibold text-slate-900 dark:text-white">1. Submit CV and KYC</p>
+              <p class="mt-1">The form stores your documents for admin review.</p>
+            </li>
+            <li class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="font-semibold text-slate-900 dark:text-white">2. Admin verifies identity</p>
+              <p class="mt-1">Only admins can approve or reject the manager application.</p>
+            </li>
+            <li class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <p class="font-semibold text-slate-900 dark:text-white">3. Command center unlocks</p>
+              <p class="mt-1">Approved managers go straight to the operations command center.</p>
+            </li>
+          </ol>
+        </div>
+
+        <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Documents</p>
+          <h2 class="mt-2 text-2xl font-bold">What the admin checks</h2>
+          <p class="mt-3 text-sm leading-6 text-slate-300">
+            CV history, government ID, selfie match, and the regions you requested. Keep the files legible so the review does not stall.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+{% endblock %}

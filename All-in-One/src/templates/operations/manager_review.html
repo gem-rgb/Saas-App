@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block head_title %}Manager Review{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 py-10 dark:bg-slate-950">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-600 dark:text-cyan-400">Admin review</p>
+        <h1 class="mt-2 text-4xl font-bold text-slate-950 dark:text-white">{{ application.user.username }}</h1>
+        <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+          Review the submitted CV and KYC documents. Only admins can approve manager access.
+        </p>
+      </div>
+      <a href="{{ portal_url }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-cyan-700 dark:hover:text-cyan-300">
+        Back to portal
+      </a>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
+      <section class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="grid gap-4 md:grid-cols-4">
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Status</p>
+            <p class="mt-2 text-xl font-bold text-slate-950 dark:text-white">{{ application.get_status_display }}</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Experience</p>
+            <p class="mt-2 text-xl font-bold text-slate-950 dark:text-white">{{ application.years_experience }} yrs</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">Regions</p>
+            <p class="mt-2 text-xl font-bold text-slate-950 dark:text-white">{{ application.regions.all|length }}</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-400">CV</p>
+            <p class="mt-2 text-xl font-bold text-slate-950 dark:text-white">{% if application.cv_file %}Attached{% else %}Missing{% endif %}</p>
+          </div>
+        </div>
+
+        {% if application.decision_reason %}
+        <div class="mt-6 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <p class="font-semibold">Latest decision note</p>
+          <p class="mt-2">{{ application.decision_reason }}</p>
+        </div>
+        {% endif %}
+
+        <div class="mt-6 grid gap-4 lg:grid-cols-2">
+          <div class="rounded-3xl border border-slate-200 p-5 dark:border-slate-800">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Profile</p>
+            <h2 class="mt-2 text-xl font-semibold text-slate-950 dark:text-white">{{ application.title }}</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">{{ application.bio|default:"No bio provided." }}</p>
+          </div>
+          <div class="rounded-3xl border border-slate-200 p-5 dark:border-slate-800">
+            <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">KYC</p>
+            <ul class="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
+              <li>Selfie: {% if application.selfie_file %}<a href="{{ application.selfie_file.url }}" class="font-medium text-cyan-600 hover:underline dark:text-cyan-300">open file</a>{% else %}missing{% endif %}</li>
+              <li>ID front: {% if application.id_front_file %}<a href="{{ application.id_front_file.url }}" class="font-medium text-cyan-600 hover:underline dark:text-cyan-300">open file</a>{% else %}missing{% endif %}</li>
+              <li>ID back: {% if application.id_back_file %}<a href="{{ application.id_back_file.url }}" class="font-medium text-cyan-600 hover:underline dark:text-cyan-300">open file</a>{% else %}missing{% endif %}</li>
+              <li>CV: {% if application.cv_file %}<a href="{{ application.cv_file.url }}" class="font-medium text-cyan-600 hover:underline dark:text-cyan-300">open file</a>{% else %}missing{% endif %}</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-6 rounded-3xl border border-slate-200 p-5 dark:border-slate-800">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-600 dark:text-cyan-400">Requested regions</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {% for region in application.regions.all %}
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">{{ region.name }}</span>
+            {% empty %}
+            <span class="text-sm text-slate-500 dark:text-slate-400">No regions selected.</span>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <aside class="space-y-6">
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-950 dark:text-white">Decision</h2>
+          <form method="post" class="mt-4 space-y-4">
+            {% csrf_token %}
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="decision_reason">Decision note</label>
+              <textarea id="decision_reason" name="decision_reason" rows="5" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 shadow-sm focus:border-cyan-500 focus:ring-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" placeholder="Optional reason for this decision"></textarea>
+            </div>
+            <div class="grid gap-3">
+              <button type="submit" name="action" value="approve" class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500">Approve manager</button>
+              <button type="submit" name="action" value="needs_info" class="rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-400">Request more info</button>
+              <button type="submit" name="action" value="reject" class="rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500">Reject</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-sm">
+          <p class="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Audit trail</p>
+          <div class="mt-4 space-y-3 text-sm text-slate-300">
+            <p>Created: {{ application.created_at }}</p>
+            <p>Updated: {{ application.updated_at }}</p>
+            <p>Reviewed by: {% if application.reviewed_by %}{{ application.reviewed_by.username }}{% else %}Pending{% endif %}</p>
+            <p>Reviewed at: {% if application.reviewed_at %}{{ application.reviewed_at }}{% else %}Pending{% endif %}</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+{% endblock %}

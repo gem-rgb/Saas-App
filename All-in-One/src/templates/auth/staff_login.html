@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block head_title %}Staff Login{% endblock %}
+
+{% block content %}
+<section class="min-h-[80vh] bg-slate-950 py-12 px-4 text-white">
+  <div class="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)] lg:items-center">
+    <div class="space-y-6">
+      <div class="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+        Staff access
+      </div>
+      <div class="max-w-2xl">
+        <h1 class="text-4xl font-bold tracking-tight md:text-6xl">Admin and manager command center</h1>
+        <p class="mt-4 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
+          Use this page for staff accounts only. Admins land in the admin command center, while approved managers continue through onboarding until the admin review is complete.
+        </p>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Admin</p>
+          <p class="mt-2 text-sm text-slate-300">Review taskers, manager vetting, and platform health.</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Manager</p>
+          <p class="mt-2 text-sm text-slate-300">Complete onboarding, then open the operations command center.</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+          <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Public users</p>
+          <p class="mt-2 text-sm text-slate-300">Students and taskers should use the public login page.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-[2rem] border border-white/10 bg-white p-6 text-slate-950 shadow-2xl shadow-cyan-950/30">
+      <h2 class="text-2xl font-bold">Staff sign in</h2>
+      <p class="mt-2 text-sm text-slate-500">Managers and admins only.</p>
+
+      {% if messages %}
+      <div class="mt-4 space-y-3">
+        {% for message in messages %}
+        <div class="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+          {{ message }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post" class="mt-6 space-y-5">
+        {% csrf_token %}
+        <div class="space-y-2">
+          <label for="id_login" class="text-sm font-medium text-slate-700">Username or email</label>
+          <input type="text" name="login" id="id_login" required autofocus class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500" placeholder="admin@example.com">
+        </div>
+
+        <div class="space-y-2">
+          <label for="id_password" class="text-sm font-medium text-slate-700">Password</label>
+          <input type="password" name="password" id="id_password" required class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 shadow-sm focus:border-cyan-500 focus:ring-cyan-500" placeholder="Enter your password">
+        </div>
+
+        <button type="submit" class="w-full rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-500">
+          Enter staff portal
+        </button>
+      </form>
+
+      <div class="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        Looking for the public portal? <a href="{% url 'account_login' %}" class="font-semibold text-cyan-700 hover:underline">Use public login</a>.
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
